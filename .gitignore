@@ -1,0 +1,29 @@
+node_modules/
+coverage/
+logs/
+*.log
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.claude/
+
+# Personal development guides (not for production)
+BUILD_STATUS.md
+PUBLISH_GUIDE.md
+QUICK_START.md
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

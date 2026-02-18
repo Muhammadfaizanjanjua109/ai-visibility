@@ -1,0 +1,86 @@
+{
+    "name": "ai-visibility",
+    "version": "0.1.0",
+    "description": "Make your web app citable by AI models. Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
+    "bin": {
+        "ai-visibility": "./dist/cli/index.js"
+    },
+    "scripts": {
+        "build": "tsup && npm run build:shebang",
+        "build:shebang": "node -e \"const fs = require('fs'); const path = require('path'); const cliPath = path.join('dist', 'cli', 'index.js'); let content = fs.readFileSync(cliPath, 'utf8'); if (!content.startsWith('#!/usr/bin/env node')) { content = '#!/usr/bin/env node\\n' + content.replace(/^#!.*\\n/, ''); fs.writeFileSync(cliPath, content); }\"",
+        "dev": "tsup --watch",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "lint": "eslint src --ext .ts",
+        "typecheck": "tsc --noEmit",
+        "prepublishOnly": "npm run build && npm run test"
+    },
+    "keywords": [
+        "ai",
+        "seo",
+        "llms",
+        "schema",
+        "json-ld",
+        "robots",
+        "crawler",
+        "middleware",
+        "ai-visibility",
+        "llms.txt",
+        "gptbot",
+        "ai-optimization"
+    ],
+    "author": "Muhammad Faizan <muhammadfaizanjanjua109@gmail.com>",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility"
+    },
+    "bugs": {
+        "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/issues"
+    },
+    "homepage": "https://github.com/Muhammadfaizanjanjua109/ai-visibility#readme",
+    "dependencies": {
+        "cheerio": "^1.0.0",
+        "chalk": "^5.3.0",
+        "commander": "^12.0.0",
+        "pino": "^9.0.0",
+        "zod": "^3.22.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/express": "^4.17.21",
+        "tsup": "^8.0.0",
+        "typescript": "^5.4.0",
+        "vitest": "^1.4.0",
+        "@vitest/coverage-v8": "^1.4.0",
+        "happy-dom": "^14.0.0",
+        "express": "^4.18.0"
+    },
+    "peerDependencies": {
+        "express": ">=4.0.0"
+    },
+    "peerDependenciesMeta": {
+        "express": {
+            "optional": true
+        }
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ]
+}
