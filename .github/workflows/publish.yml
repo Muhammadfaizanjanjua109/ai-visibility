@@ -28,8 +28,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Setup npm authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+          echo "@Muhammadfaizanjanjua109:registry=https://npm.pkg.github.com" >> .npmrc
+
       - name: Publish to npm
-        run: npm publish --access public --registry https://registry.npmjs.org/
+        run: npm publish --registry https://registry.npmjs.org/
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
