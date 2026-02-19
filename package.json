@@ -1,6 +1,6 @@
 {
     "name": "@Muhammadfaizanjanjua109/ai-visibility",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "description": "Make your web app citable by AI models. Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
