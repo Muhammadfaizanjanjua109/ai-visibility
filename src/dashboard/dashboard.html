@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Visibility Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+                Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .last-updated {
+            color: #999;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+
+        .card-value {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .card-meta {
+            font-size: 13px;
+            color: #666;
+        }
+
+        /* Score Card */
+        .score-card {
+            grid-column: 1 / -1;
+        }
+
+        .score-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 0deg,
+                #667eea 0deg,
+                #667eea calc(var(--score-percent) * 3.6deg),
+                #f0f0f0 calc(var(--score-percent) * 3.6deg),
+                #f0f0f0 360deg
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .score-text {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .score-label {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .score-info {
+            flex: 1;
+            margin-left: 30px;
+        }
+
+        .score-info p {
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Bar Chart */
+        .bot-bar {
+            margin-bottom: 15px;
+        }
+
+        .bot-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .bot-count {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .bar {
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            animation: slideIn 0.6s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                width: 0;
+            }
+            to {
+                width: var(--width);
+            }
+        }
+
+        /* Page List */
+        .page-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .page-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+            transition: background 0.2s ease;
+        }
+
+        .page-item:hover {
+            background: #f0f0f0;
+        }
+
+        .page-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .page-count {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .page-count span {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        /* Loading & Empty States */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .score-card {
+                grid-column: 1;
+            }
+
+            .score-display {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .score-info {
+                margin-left: 0;
+                margin-top: 20px;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Dark Mode (optional system preference) */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            }
+
+            .card,
+            .header {
+                background: #2d3561;
+                color: #e0e0e0;
+            }
+
+            .card-title,
+            .stat-label,
+            .page-count {
+                color: #aaa;
+            }
+
+            .card-meta,
+            .bot-name,
+            .page-title {
+                color: #e0e0e0;
+            }
+
+            .page-item {
+                background: #1a1a2e;
+                color: #e0e0e0;
+            }
+
+            .page-item:hover {
+                background: #252d46;
+            }
+
+            .stat-item {
+                background: #1a1a2e;
+            }
+
+            .bar {
+                background: #1a1a2e;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🤖 AI Visibility Dashboard</h1>
+            <p>Monitor how AI models discover and interact with your content</p>
+            <div class="last-updated">
+                Last updated: <span id="lastUpdated">--:--</span>
+                <span id="autoRefresh" style="margin-left: 15px; color: #667eea; font-weight: 600">
+                    ↻ Auto-refresh: OFF
+                </span>
+            </div>
+        </div>
+
+        <!-- AI Readiness Score -->
+        <div class="grid">
+            <div class="card score-card">
+                <div class="card-title">📊 AI Readiness Score</div>
+                <div class="score-display">
+                    <div class="score-circle" id="scoreCircle" style="--score-percent: 0">
+                        <div class="score-text" id="scoreValue">0</div>
+                        <div class="score-label">out of 100</div>
+                    </div>
+                    <div class="score-info">
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <div class="stat-value" id="totalVisits">0</div>
+                                <div class="stat-label">Total Visits</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="uniquePages">0</div>
+                                <div class="stat-label">Pages Crawled</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="botCount">0</div>
+                                <div class="stat-label">AI Models</div>
+                            </div>
+                        </div>
+                        <p style="margin-top: 15px; text-align: left">
+                            <strong>Quick Insights:</strong><br />
+                            <span id="scoreMessage">Loading data...</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid">
+            <!-- AI Models Activity -->
+            <div class="card">
+                <div class="card-title">🌍 AI Model Activity</div>
+                <div id="botsContainer">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Most Crawled Pages -->
+            <div class="card">
+                <div class="card-title">📄 Most Crawled Pages</div>
+                <div id="pagesContainer">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Success Rate -->
+            <div class="card">
+                <div class="card-title">✅ Success Rate (24h)</div>
+                <div id="successContainer">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Response Time -->
+            <div class="card">
+                <div class="card-title">⚡ Avg Response Time</div>
+                <div id="responseTimeContainer">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Log -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">📝 Recent Activity (Last 24h)</div>
+                <div id="activityContainer">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Minimal Script for Data Display -->
+    <script>
+        // Configuration - set these from your integration
+        const CONFIG = {
+            dataSource: window.aiVisibilityData || {},
+            autoRefresh: false,
+            refreshInterval: 30000,
+        };
+
+        // Initialize dashboard
+        function initDashboard() {
+            renderDashboard(CONFIG.dataSource);
+            updateTimestamp();
+
+            if (CONFIG.autoRefresh) {
+                setInterval(() => {
+                    if (window.aiVisibilityData) {
+                        CONFIG.dataSource = window.aiVisibilityData;
+                        renderDashboard(CONFIG.dataSource);
+                        updateTimestamp();
+                    }
+                }, CONFIG.refreshInterval);
+            }
+        }
+
+        function renderDashboard(data) {
+            if (!data || !data.stats) {
+                showEmpty();
+                return;
+            }
+
+            const stats = data.stats;
+            const logs = data.logs || [];
+
+            // Calculate readiness score
+            const score = calculateScore(stats, logs);
+            renderScore(score, stats);
+            renderBots(stats);
+            renderPages(logs);
+            renderSuccessRate(stats);
+            renderResponseTime(stats);
+            renderActivity(logs);
+        }
+
+        function calculateScore(stats, logs) {
+            let score = 50; // Base score
+
+            // More AI models = higher score
+            const botCount = Object.keys(stats).length;
+            score += Math.min(botCount * 5, 20);
+
+            // More visits = higher score
+            const totalVisits = Object.values(stats).reduce((sum, s) => sum + s.totalVisits, 0);
+            score += Math.min(totalVisits / 10, 15);
+
+            // Higher success rate = higher score
+            const avgSuccessRate =
+                Object.values(stats).reduce((sum, s) => sum + (s.successRate || 0), 0) /
+                    Object.keys(stats).length || 0;
+            score += avgSuccessRate * 0.15;
+
+            return Math.min(Math.round(score), 100);
+        }
+
+        function renderScore(score, stats) {
+            const totalVisits = Object.values(stats).reduce((sum, s) => sum + s.totalVisits, 0);
+            const uniquePages = Object.values(stats).reduce(
+                (sum, s) => sum + (s.uniqueUrlCount || 0),
+                0
+            );
+
+            document.getElementById('scoreValue').textContent = score;
+            document.getElementById('scoreCircle').style.setProperty('--score-percent', score);
+            document.getElementById('totalVisits').textContent = totalVisits;
+            document.getElementById('uniquePages').textContent = uniquePages;
+            document.getElementById('botCount').textContent = Object.keys(stats).length;
+
+            const message =
+                score >= 80
+                    ? '✨ Excellent! AI models love your content.'
+                    : score >= 60
+                      ? '👍 Good. Consider improving content structure.'
+                      : '📈 Getting started. Add more AI-friendly content.';
+
+            document.getElementById('scoreMessage').textContent = message;
+        }
+
+        function renderBots(stats) {
+            const container = document.getElementById('botsContainer');
+            if (Object.keys(stats).length === 0) {
+                container.innerHTML = '<div class="empty">No AI crawler activity yet</div>';
+                return;
+            }
+
+            const maxVisits = Math.max(...Object.values(stats).map((s) => s.totalVisits));
+
+            let html = '';
+            Object.values(stats)
+                .sort((a, b) => b.totalVisits - a.totalVisits)
+                .forEach((bot) => {
+                    const percentage = (bot.totalVisits / maxVisits) * 100;
+                    html += `
+                <div class="bot-bar">
+                    <div class="bot-name">
+                        <span>${bot.company} <strong>${bot.botName}</strong></span>
+                        <span class="bot-count">${bot.totalVisits}</span>
+                    </div>
+                    <div class="bar">
+                        <div class="bar-fill" style="--width: ${percentage}%"></div>
+                    </div>
+                </div>
+            `;
+                });
+            container.innerHTML = html;
+        }
+
+        function renderPages(logs) {
+            const container = document.getElementById('pagesContainer');
+            const pageStats = {};
+
+            logs.forEach((log) => {
+                pageStats[log.url] = (pageStats[log.url] || 0) + 1;
+            });
+
+            const pages = Object.entries(pageStats)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            if (pages.length === 0) {
+                container.innerHTML = '<div class="empty">No pages crawled yet</div>';
+                return;
+            }
+
+            let html = '<div class="page-list">';
+            pages.forEach(([url, count], index) => {
+                const displayUrl =
+                    url.length > 40 ? '...' + url.substring(url.length - 37) : url;
+                html += `
+                <div class="page-item">
+                    <div class="page-title">${index + 1}. ${displayUrl}</div>
+                    <div class="page-count"><span>${count}</span> crawler visit${count > 1 ? 's' : ''}</div>
+                </div>
+            `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function renderSuccessRate(stats) {
+            const container = document.getElementById('successContainer');
+            const avgSuccess =
+                Object.values(stats).reduce((sum, s) => sum + (s.successRate || 0), 0) /
+                    Object.keys(stats).length || 0;
+
+            container.innerHTML = `
+            <div class="card-value">${Math.round(avgSuccess)}%</div>
+            <div class="card-meta">Successful requests across all crawlers</div>
+        `;
+        }
+
+        function renderResponseTime(stats) {
+            const container = document.getElementById('responseTimeContainer');
+            const avgTime =
+                Object.values(stats).reduce((sum, s) => sum + (s.avgResponseTimeMs || 0), 0) /
+                    Object.keys(stats).length || 0;
+
+            container.innerHTML = `
+            <div class="card-value">${Math.round(avgTime)}ms</div>
+            <div class="card-meta">Average response time for AI crawlers</div>
+        `;
+        }
+
+        function renderActivity(logs) {
+            const container = document.getElementById('activityContainer');
+            const recent = logs.slice(-10).reverse();
+
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="empty">No recent activity</div>';
+                return;
+            }
+
+            let html = '<div class="page-list">';
+            recent.forEach((log) => {
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                const status = log.statusCode >= 200 && log.statusCode < 400 ? '✅' : '⚠️';
+                html += `
+                <div class="page-item">
+                    <div class="page-title">${status} ${log.company} - ${log.botName}</div>
+                    <div class="page-count">${time} | ${log.url.substring(0, 50)}... | ${log.statusCode} ${log.responseTimeMs}ms</div>
+                </div>
+            `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function showEmpty() {
+            const emptyHtml = `
+            <div class="empty">
+                <div class="empty-icon">📭</div>
+                <strong>No data yet</strong>
+                <p style="margin-top: 10px; color: #bbb; font-size: 13px">
+                    AI models will start appearing here once they crawl your site.
+                </p>
+            </div>
+        `;
+
+            document.getElementById('botsContainer').innerHTML = emptyHtml;
+            document.getElementById('pagesContainer').innerHTML = emptyHtml;
+            document.getElementById('successContainer').innerHTML = emptyHtml;
+            document.getElementById('responseTimeContainer').innerHTML = emptyHtml;
+            document.getElementById('activityContainer').innerHTML = emptyHtml;
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleTimeString();
+        }
+
+        // Start dashboard when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initDashboard);
+        } else {
+            initDashboard();
+        }
+    </script>
+</body>
+</html>

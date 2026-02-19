@@ -20,6 +20,10 @@ export { ContentAnalyzer } from './analyzer/content-analyzer'
 // --- Monitor ---
 export { AIVisitorLogger } from './monitor/visitor-logger'
 
+// --- Dashboard ---
+export { Dashboard, createDashboard } from './dashboard/index'
+export type { DashboardData } from './dashboard/index'
+
 // --- Types ---
 export type {
     AIMiddlewareConfig,
@@ -38,4 +42,5 @@ export type {
     CrawlerLog,
     LoggerConfig,
     AnalysisIssue,
+    BotStatsSerialized,
 } from './types'

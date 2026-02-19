@@ -7,7 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import type { Request, Response, NextFunction } from 'express'
 import { detectBot } from '../data/crawlers'
-import type { CrawlerLog, LoggerConfig } from '../types'
+import type { CrawlerLog, LoggerConfig, BotStatsSerialized } from '../types'
 
 const DEFAULT_LOG_PATH = './logs/ai-crawler.json'
 const DEFAULT_MAX_MEMORY = 1000
@@ -241,17 +241,6 @@ interface BotStatsInternal {
     company: string
     totalVisits: number
     uniqueUrls: Set<string>
-    lastSeen: string
-    avgResponseTimeMs: number
-    successRate: number
-    successCount: number
-}
-
-export interface BotStatsSerialized {
-    botName: string
-    company: string
-    totalVisits: number
-    uniqueUrlCount: number
     lastSeen: string
     avgResponseTimeMs: number
     successRate: number

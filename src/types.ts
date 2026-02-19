@@ -185,6 +185,17 @@ export interface CrawlerLog {
     ip?: string
 }
 
+export interface BotStatsSerialized {
+    botName: string
+    company: string
+    totalVisits: number
+    uniqueUrlCount: number
+    lastSeen: string
+    avgResponseTimeMs: number
+    successRate: number
+    successCount: number
+}
+
 export interface LoggerConfig {
     /** Where to store logs: 'file' | 'memory' | 'both' */
     storage?: 'file' | 'memory' | 'both'
