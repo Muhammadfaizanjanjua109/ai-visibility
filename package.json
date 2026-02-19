@@ -1,6 +1,6 @@
 {
     "name": "@Muhammadfaizanjanjua109/ai-visibility",
-    "version": "0.1.4",
+    "version": "0.2.0",
     "description": "Make your web app citable by AI models. Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
@@ -20,7 +20,6 @@
         "build:shebang": "node -e \"const fs = require('fs'); const path = require('path'); const cliPath = path.join('dist', 'cli', 'index.js'); let content = fs.readFileSync(cliPath, 'utf8'); if (!content.startsWith('#!/usr/bin/env node')) { content = '#!/usr/bin/env node\\n' + content.replace(/^#!.*\\n/, ''); fs.writeFileSync(cliPath, content); }\"",
         "dev": "tsup --watch",
         "test": "vitest run",
-        
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts",
