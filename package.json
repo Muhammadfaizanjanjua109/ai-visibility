@@ -23,7 +23,10 @@
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts",
+        "lint:fix": "eslint src --ext .ts --fix",
         "typecheck": "tsc --noEmit",
+        "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+        "prepare": "husky install",
         "prepublishOnly": "npm run build && npm run test",
         "publish:both": "npm version patch && npm publish --registry https://registry.npmjs.org/ && npm publish --registry https://npm.pkg.github.com"
     },
@@ -61,6 +64,11 @@
     "devDependencies": {
         "@types/node": "^20.0.0",
         "@types/express": "^4.17.21",
+        "@typescript-eslint/eslint-plugin": "^7.0.0",
+        "@typescript-eslint/parser": "^7.0.0",
+        "eslint": "^8.0.0",
+        "husky": "^8.0.0",
+        "lint-staged": "^15.0.0",
         "tsup": "^8.0.0",
         "typescript": "^5.4.0",
         "vitest": "^1.4.0",
