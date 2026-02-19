@@ -13,7 +13,7 @@
         }
     },
     "bin": {
-        "ai-visibility": "./dist/cli/index.js"
+        "ai-visibility": "dist/cli/index.js"
     },
     "scripts": {
         "build": "tsup && npm run build:shebang",
@@ -24,7 +24,8 @@
         "test:coverage": "vitest run --coverage",
         "lint": "eslint src --ext .ts",
         "typecheck": "tsc --noEmit",
-        "prepublishOnly": "npm run build && npm run test"
+        "prepublishOnly": "npm run build && npm run test",
+        "publish:both": "npm version patch && npm publish --registry https://registry.npmjs.org/ && npm publish --registry https://npm.pkg.github.com"
     },
     "keywords": [
         "ai",
@@ -44,7 +45,7 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility"
+        "url": "git+https://github.com/Muhammadfaizanjanjua109/ai-visibility.git"
     },
     "bugs": {
         "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/issues"

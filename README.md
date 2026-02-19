@@ -3,7 +3,8 @@
 > **Make your web app citable by AI models.**  
 > Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.
 
-[![npm version](https://img.shields.io/npm/v/ai-visibility.svg)](https://www.npmjs.com/package/ai-visibility)
+[![npm version](https://img.shields.io/npm/v/@Muhammadfaizanjunjua109/ai-visibility.svg)](https://www.npmjs.com/package/@Muhammadfaizanjunjua109/ai-visibility)
+[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-available-brightgreen)](https://github.com/Muhammadfaizanjunjua109/ai-visibility/packages)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
@@ -29,7 +30,7 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 ## Quick Start
 
 ```bash
-npm install ai-visibility
+npm install @Muhammadfaizanjunjua109/ai-visibility
 npx ai-visibility init
 ```
 
@@ -43,12 +44,16 @@ That's it. You now have:
 ## Installation
 
 ```bash
-npm install ai-visibility
+npm install @Muhammadfaizanjunjua109/ai-visibility
 # or
-pnpm add ai-visibility
+pnpm add @Muhammadfaizanjunjua109/ai-visibility
 # or
-yarn add ai-visibility
+yarn add @Muhammadfaizanjunjua109/ai-visibility
 ```
+
+**Also available on:**
+- [npm](https://www.npmjs.com/package/@Muhammadfaizanjunjua109/ai-visibility)
+- [GitHub Packages](https://github.com/Muhammadfaizanjunjua109/ai-visibility/packages)
 
 **Requirements:** Node.js 18+
 
@@ -327,18 +332,36 @@ import type {
 ## Roadmap
 
 - **v0.1.0** ✅ Middleware, robots.txt, schema, basic CLI
-- **v0.2.0** 🔄 llms.txt, content analyzer, visitor logger
-- **v1.0.0** 🔜 Examples (Next, Express, Nuxt), full docs, tests
-- **v2.0.0** 🔮 Analytics dashboard, cloud sync
+- **v0.1.1** ✅ CI/CD workflows, dual-registry publishing, comprehensive docs & examples
+  - Full [API Reference](./docs/api-reference.md)
+  - [Troubleshooting Guide](./docs/troubleshooting.md)
+  - [Performance Benchmarks](./docs/performance.md)
+  - Framework examples: [Next.js](./examples/nextjs-app), [Nuxt](./examples/nuxt-app), [SvelteKit](./examples/sveltekit-app)
+  - GitHub Actions CI/CD with coverage reports
+- **v0.2.0** 🔄 Expand test coverage (CLI, logger, llms.txt), add more framework examples
+- **v1.0.0** 🔜 Stable API, additional framework examples (Express, Remix), analytics dashboard
+- **v2.0.0** 🔮 Cloud analytics, realtime crawler monitoring, custom scoring models
 
 ---
+
+## Documentation
+
+- **[API Reference](./docs/api-reference.md)** — Complete API documentation with all types and methods
+- **[Troubleshooting Guide](./docs/troubleshooting.md)** — Common issues and solutions
+- **[Performance Guide](./docs/performance.md)** — Benchmarks and optimization tips
+
+## Framework Examples
+
+- **[Next.js](./examples/nextjs-app)** — Integration with Next.js 13+
+- **[Nuxt](./examples/nuxt-app)** — Integration with Nuxt 3
+- **[SvelteKit](./examples/sveltekit-app)** — Integration with SvelteKit
 
 ## Contributing
 
 Contributions welcome! Please read [CONTRIBUTING.md](./docs/contributing.md) first.
 
 ```bash
-git clone https://github.com/yourusername/ai-visibility
+git clone https://github.com/Muhammadfaizanjunjua109/ai-visibility
 cd ai-visibility
 npm install
 npm run dev
