@@ -7,7 +7,7 @@
  */
 
 const express = require('express')
-const { AIVisitorLogger, createDashboard } = require('@muhammadfaizanjanjua109/ai-visibility')
+const { AIVisitorLogger, createDashboard } = require('@mfaizanjanjua109/ai-visibility')
 
 const app = express()
 const PORT = 3000
