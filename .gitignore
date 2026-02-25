@@ -3,8 +3,6 @@ dist/
 coverage/
 logs/
 *.log
-.env
-.env.local
 .DS_Store
 Thumbs.db
 .claude/
@@ -28,3 +26,4 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+config.bat

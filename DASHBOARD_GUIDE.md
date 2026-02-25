@@ -18,7 +18,7 @@ The **AI Visibility Dashboard** is a free, self-hosted analytics dashboard inclu
 ### 1. Install Package
 
 ```bash
-npm install @muhammadfaizanjanjua109/ai-visibility
+npm install @mfaizanjanjua109/ai-visibility
 ```
 
 ### 2. Set Up Crawler Tracking
@@ -28,7 +28,7 @@ First, add the logger middleware to track AI crawler visits:
 **Express.js:**
 ```ts
 import express from 'express'
-import { AIVisitorLogger, createDashboard } from '@muhammadfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
 
 const app = express()
 const logger = new AIVisitorLogger({ storage: 'file' })
@@ -49,7 +49,7 @@ app.get('/admin/ai-visibility', (req, res) => {
 **Next.js 13+ (App Router):**
 ```tsx
 // app/admin/ai-visibility/page.tsx
-import { AIVisitorLogger, createDashboard } from '@muhammadfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
 
 export default function DashboardPage() {
   const logger = new AIVisitorLogger({ storage: 'file' })
@@ -72,7 +72,7 @@ export default function DashboardPage() {
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { AIVisitorLogger, createDashboard } from '@muhammadfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
 
 const dashboardHtml = ref('')
 
@@ -146,7 +146,7 @@ The dashboard tracks these AI models:
 ### Dashboard Class
 
 ```ts
-import { createDashboard } from '@muhammadfaizanjanjua109/ai-visibility'
+import { createDashboard } from '@mfaizanjanjua109/ai-visibility'
 
 const dashboard = createDashboard()
 ```
@@ -379,7 +379,7 @@ Some AI models may not be detected if:
 
 Add custom bot detection:
 ```ts
-import { createAIMiddleware } from '@muhammadfaizanjanjua109/ai-visibility'
+import { createAIMiddleware } from '@mfaizanjanjua109/ai-visibility'
 
 app.use(createAIMiddleware({
   additionalBots: ['CustomBot/1.0']

@@ -6,7 +6,7 @@
  * Access at: http://localhost:3000/admin/ai-visibility
  */
 
-import { AIVisitorLogger, createDashboard } from '@muhammadfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
 
 export const metadata = {
     title: 'AI Visibility Dashboard',
