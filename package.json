@@ -50,12 +50,12 @@
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/Muhammadfaizanjanjua109/ai-visibility.git"
+        "url": "git+https://github.com/muhammadfaizanjanjua109/ai-visibility.git"
     },
     "bugs": {
-        "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/issues"
+        "url": "https://github.com/muhammadfaizanjanjua109/ai-visibility/issues"
     },
-    "homepage": "https://github.com/Muhammadfaizanjanjua109/ai-visibility#readme",
+    "homepage": "https://github.com/muhammadfaizanjanjua109/ai-visibility#readme",
     "dependencies": {
         "cheerio": "^1.0.0",
         "chalk": "^5.3.0",
