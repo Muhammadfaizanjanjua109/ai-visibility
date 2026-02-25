@@ -32,7 +32,6 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
-          echo "@muhammadfaizanjanjua109:registry=https://npm.pkg.github.com" >> .npmrc
 
       - name: Publish to npm
         run: npm publish --registry https://registry.npmjs.org/
