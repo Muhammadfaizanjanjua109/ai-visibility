@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { AIVisitorLogger, createDashboard } from '@Muhammadfaizanjunjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from '@muhammadfaizanjanjua109/ai-visibility'
 
 const dashboardHtml = ref('')
 

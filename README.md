@@ -3,8 +3,8 @@
 > **Make your web app citable by AI models.**  
 > Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.
 
-[![npm version](https://img.shields.io/npm/v/@Muhammadfaizanjanjua109/ai-visibility.svg)](https://www.npmjs.com/package/ai-visibility)
-[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-available-brightgreen)](https://github.com/Muhammadfaizanjunjua109/ai-visibility/packages)
+[![npm version](https://img.shields.io/npm/v/@muhammadfaizanjanjua109/ai-visibility.svg)](https://www.npmjs.com/package/@muhammadfaizanjanjua109/ai-visibility)
+[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-available-brightgreen)](https://github.com/Muhammadfaizanjanjua109/ai-visibility/packages)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
@@ -23,6 +23,7 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 | Help AI understand my content | Schema injection | Auto-generated JSON-LD markup |
 | Know if I'm doing it right | Content analyzer | Score + specific fixes |
 | Track AI crawler visits | Visitor logger | Log of all AI crawler activity |
+| Monitor AI activity visually | Free Dashboard | Real-time analytics & insights |
 | Get started quickly | CLI tool | 1 command to set up everything |
 
 ---
@@ -30,7 +31,7 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 ## Quick Start
 
 ```bash
-npm install @Muhammadfaizanjanjua109/ai-visibility
+npm install @muhammadfaizanjanjua109/ai-visibility
 npx ai-visibility init
 ```
 
@@ -44,7 +45,7 @@ That's it. You now have:
 ## Installation
 
 ```bash
-npm install @Muhammadfaizanjanjua109/ai-visibility
+npm install @muhammadfaizanjanjua109/ai-visibility
 # or
 pnpm add @Muhammadfaizanjanjua109/ai-visibility
 # or
@@ -265,6 +266,50 @@ const gptLogs = logger.getLogs({ botName: 'GPTBot', days: 7 })
 
 ---
 
+### 6. Free Tier Dashboard
+
+Monitor AI crawler activity with a beautiful, self-hosted dashboard. No infrastructure costs, no data collection — everything runs locally.
+
+```typescript
+import express from 'express'
+import { AIVisitorLogger, createDashboard } from 'ai-visibility'
+
+const app = express()
+const logger = new AIVisitorLogger({ storage: 'file' })
+
+app.use(logger.middleware())
+
+// Serve the dashboard
+app.get('/admin/ai-visibility', (req, res) => {
+  // Optionally add authentication
+  // if (!req.user?.isAdmin) return res.status(403).send('Unauthorized')
+
+  const stats = logger.getStats(30)      // Last 30 days
+  const logs = logger.getLogs({ days: 30 })
+
+  const dashboard = createDashboard()
+  res.send(dashboard.render(stats, logs))
+})
+```
+
+**Dashboard Features:**
+- 📊 **AI Readiness Score** (0-100) based on crawler activity
+- 🌍 **Real-time Crawler Tracking** — See which AI models (Claude, ChatGPT, Gemini, Perplexity) visited
+- 📄 **Page-level Analytics** — Which content AI models crawl most
+- ⚡ **Performance Metrics** — Response times and success rates
+- 📝 **Activity Log** — Recent crawler visits with details
+- 💾 **Self-hosted** — Zero infrastructure costs, data stays on your server
+- 🎨 **Lightweight** — Vanilla HTML/CSS (45KB), no frameworks
+
+**Framework Support:**
+- [Next.js 13+](./examples/nextjs-dashboard)
+- [Vue 3 / Nuxt 3](./examples/vue-dashboard)
+- [Vanilla Node.js/Express](./examples/vanilla-dashboard)
+
+**Full documentation:** [Dashboard Guide](./DASHBOARD_GUIDE.md)
+
+---
+
 ## CLI
 
 ```bash
@@ -322,6 +367,7 @@ import type {
 | AI Content Analyzer | ❌ | ❌ | Basic | ✅ AI-specific |
 | Schema Generator | Manual | Manual | Basic | ✅ Auto |
 | Crawler Monitor | ❌ | ❌ | ❌ | ✅ |
+| **Analytics Dashboard** | ⏳ | ⏳ | ❌ | ✅ Self-hosted |
 | CLI Tool | ❌ | ❌ | ❌ | ✅ |
 | Open Source | ❌ | ❌ | ✅ | ✅ |
 | Free | No | No | ✅ | ✅ |
@@ -333,19 +379,21 @@ import type {
 
 - **v0.1.0** ✅ Middleware, robots.txt, schema, basic CLI
 - **v0.1.1** ✅ CI/CD workflows, dual-registry publishing, comprehensive docs & examples
-  - Full [API Reference](./docs/api-reference.md)
-  - [Troubleshooting Guide](./docs/troubleshooting.md)
-  - [Performance Benchmarks](./docs/performance.md)
-  - Framework examples: [Next.js](./examples/nextjs-app), [Nuxt](./examples/nuxt-app), [SvelteKit](./examples/sveltekit-app)
-  - GitHub Actions CI/CD with coverage reports
-- **v0.2.0** 🔄 Expand test coverage (CLI, logger, llms.txt), add more framework examples
-- **v1.0.0** 🔜 Stable API, additional framework examples (Express, Remix), analytics dashboard
-- **v2.0.0** 🔮 Cloud analytics, realtime crawler monitoring, custom scoring models
+- **v0.2.0** ✅ Free tier dashboard with real-time analytics
+  - Self-hosted HTML/CSS dashboard (no frameworks)
+  - Real-time AI crawler tracking & readiness scoring
+  - Framework integrations: [Next.js](./examples/nextjs-dashboard), [Vue/Nuxt](./examples/vue-dashboard), [Vanilla Node.js](./examples/vanilla-dashboard)
+  - [Dashboard Guide](./DASHBOARD_GUIDE.md) with API docs & examples
+  - Fixed GitHub Actions dual-registry publishing
+- **v0.3.0** 🔜 Premium features (extended history, citations, alerts), expand test coverage, more framework examples
+- **v1.0.0** 🔮 Stable API, analytics leaderboard, community directory
+- **v2.0.0** 🔮 Cloud analytics, realtime monitoring, custom scoring models
 
 ---
 
 ## Documentation
 
+- **[Dashboard Guide](./DASHBOARD_GUIDE.md)** — Free tier analytics dashboard with real-time AI crawler tracking
 - **[API Reference](./docs/api-reference.md)** — Complete API documentation with all types and methods
 - **[Troubleshooting Guide](./docs/troubleshooting.md)** — Common issues and solutions
 - **[Performance Guide](./docs/performance.md)** — Benchmarks and optimization tips
