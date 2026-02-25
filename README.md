@@ -3,7 +3,7 @@
 > **Make your web app citable by AI models.**  
 > Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.
 
-[![npm version](https://img.shields.io/npm/v/@muhammadfaizanjanjua109/ai-visibility.svg)](https://www.npmjs.com/package/@muhammadfaizanjanjua109/ai-visibility)
+[![npm version](https://img.shields.io/npm/v/@mfaizanjanjua109/ai-visibility.svg)](https://www.npmjs.com/package/@mfaizanjanjua109/ai-visibility)
 [![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-available-brightgreen)](https://github.com/Muhammadfaizanjanjua109/ai-visibility/packages)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
@@ -31,7 +31,7 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 ## Quick Start
 
 ```bash
-npm install @muhammadfaizanjanjua109/ai-visibility
+npm install @mfaizanjanjua109/ai-visibility
 npx ai-visibility init
 ```
 
@@ -45,7 +45,7 @@ That's it. You now have:
 ## Installation
 
 ```bash
-npm install @muhammadfaizanjanjua109/ai-visibility
+npm install @mfaizanjanjua109/ai-visibility
 # or
 pnpm add @Muhammadfaizanjanjua109/ai-visibility
 # or
