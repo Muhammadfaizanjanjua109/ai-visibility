@@ -16,17 +16,17 @@ This script temporarily updates your package scope and documentation links based
 #### Publish to npm
 
 ```bash
-npm run publish:npm -- --otp=123456
+npm run publish:npm
 ```
 
 This will:
 1. Update all files to use `@mfaizanjanjua109/ai-visibility`
 2. Update documentation links to npm registry
 3. Run `npm run check` (validate everything)
-4. Publish to npm with OTP authentication
+4. Publish to npm (authentication handled by .npmrc)
 5. Restore all files to original state
 
-**Note:** You must provide your 2FA OTP code from your authenticator app.
+**Note:** Authentication is handled by your npm configuration in `.npmrc`. Configure it as needed (OTP, token, etc.).
 
 #### Publish to GitHub Packages
 
@@ -52,8 +52,8 @@ npm run publish:both
 This will:
 1. Validate everything with `npm run check`
 2. Bump version with `npm version patch`
-3. Publish to npm (prompts for OTP)
-4. Publish to GitHub Packages
+3. Publish to npm (authentication via .npmrc)
+4. Publish to GitHub Packages (authentication via .npmrc)
 5. Display success message
 
 ### Files Updated During Publishing
@@ -93,20 +93,27 @@ All files are restored to their original state after publishing completes.
 If you need to manually publish without the script:
 
 ```bash
-# Update files manually
-# npm run publish:npm or npm run publish:github calls the script
-# Or manually run the script:
-node scripts/publish.js npm --otp=123456
+# Run the script directly:
+node scripts/publish.js npm
 node scripts/publish.js github
 ```
 
+### Authentication
+
+Both registries use your `.npmrc` configuration for authentication:
+
+**For npm:**
+- Set `//registry.npmjs.org/:_authToken=your_token` in `.npmrc`
+- Or use `npm login` and npm will manage tokens
+- Or provide OTP when prompted (if 2FA is enabled)
+
+**For GitHub Packages:**
+- Set `//npm.pkg.github.com/:_authToken=your_github_token` in `.npmrc`
+- Use a GitHub Personal Access Token with `read:packages` and `write:packages` scopes
+
 ### Troubleshooting
 
-**OTP timeout:**
-- OTP codes expire after ~30 seconds
-- Get a fresh code from your authenticator app and try again
-
-**GitHub token missing:**
+**Authentication failed:**
 - Make sure `GITHUB_TOKEN` environment variable is set
 - In GitHub Actions, this is set automatically
 - Locally, you may need to: `export GITHUB_TOKEN=your_token`

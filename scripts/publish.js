@@ -5,8 +5,10 @@
  * Handles scope and link changes based on target registry
  *
  * Usage:
- *   node scripts/publish.js npm [--otp=123456]
+ *   node scripts/publish.js npm
  *   node scripts/publish.js github
+ *
+ * Note: Authentication is handled by your .npmrc configuration
  */
 
 const fs = require('fs')
@@ -127,16 +129,13 @@ function restoreFileScopes(originalRegistry) {
   log('green', '  ✓ Restored all files')
 }
 
-function publish(registry, otp) {
+function publish(registry) {
   const registryUrl = registry === 'npm' ? NPM_REGISTRY : GITHUB_REGISTRY
   const registryName = registry === 'npm' ? 'npm' : 'GitHub Packages'
 
   log('cyan', `\n📦 Publishing to ${registryName}...`)
 
-  let command = `npm publish --registry ${registryUrl} --access public`
-  if (registry === 'npm' && otp) {
-    command += ` --otp=${otp}`
-  }
+  const command = `npm publish --registry ${registryUrl} --access public`
 
   try {
     execSync(command, { stdio: 'inherit' })
@@ -151,11 +150,9 @@ function publish(registry, otp) {
 async function main() {
   const args = process.argv.slice(2)
   const registry = args[0]
-  const otpArg = args.find((arg) => arg.startsWith('--otp='))
-  const otp = otpArg ? otpArg.split('=')[1] : null
 
   if (!registry || !['npm', 'github'].includes(registry)) {
-    log('red', '❌ Usage: node scripts/publish.js <npm|github> [--otp=code]')
+    log('red', '❌ Usage: node scripts/publish.js <npm|github>')
     process.exit(1)
   }
 
@@ -176,7 +173,7 @@ async function main() {
     updateFileScopes(registry)
 
     // Publish to registry
-    const success = publish(registry, otp)
+    const success = publish(registry)
 
     // Restore original files
     restoreFileScopes(registry)

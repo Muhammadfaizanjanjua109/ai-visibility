@@ -26,7 +26,7 @@
         "lint:fix": "eslint src --ext .ts --fix",
         "typecheck": "tsc --noEmit",
         "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-        "ready-to-publish": "npm run check && echo '✅ All checks passed! Safe to publish.' && echo 'Run: npm run publish:npm or npm run publish:github'",
+        "ready-to-publish": "npm run check && echo '✅ All checks passed!' && echo 'Ready to publish:' && echo '  npm run publish:npm' && echo '  npm run publish:github' && echo '  npm run publish:both'",
         "prepare": "husky install",
         "prepublishOnly": "npm run build && npm run test",
         "publish:npm": "npm run check && node scripts/publish.js npm",
