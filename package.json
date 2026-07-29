@@ -1,6 +1,6 @@
 {
   "name": "@mfaizanjanjua109/ai-visibility",
-  "version": "0.2.3", 
+  "version": "0.2.4", 
   "description": "Make your web app citable by AI models. Automatic schema, bot optimization, and AI readiness scoring for Node.js apps.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -50,12 +50,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/muhammadfaizanjanjua109/ai-visibility.git"
+    "url": "git+https://github.com/Muhammadfaizanjanjua109/ai-visibility.git"
   },
   "bugs": {
-    "url": "https://github.com/muhammadfaizanjanjua109/ai-visibility/issues"
+    "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/issues"
   },
-  "homepage": "https://github.com/muhammadfaizanjanjua109/ai-visibility#readme",
+  "homepage": "https://github.com/Muhammadfaizanjanjua109/ai-visibility#readme",
   "dependencies": {
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0",
