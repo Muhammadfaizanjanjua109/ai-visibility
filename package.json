@@ -1,6 +1,7 @@
 {
   "name": "ai-visibility",
-  "version": "0.2.6",
+  "version": "0.2.7",
+  "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -24,25 +25,32 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "ready-to-publish": "npm run check && echo '\u2705 All checks passed! Safe to publish.' && echo 'Run: npm run publish:both'",
+    "ready-to-publish": "npm run check && echo '✅ All checks passed! Safe to publish.'",
     "prepare": "husky install",
     "prepublishOnly": "npm run build && npm run test",
-    "publish:both": "npm run check && npm version patch && npm publish --registry https://registry.npmjs.org/ && npm publish --registry https://npm.pkg.github.com && echo '\u2705 Published to npm and GitHub Packages!'",
-    "release": "npm run ready-to-publish && npm run publish:both"
+    "publish:npm": "npm run check && npm publish --registry https://registry.npmjs.org/",
+    "publish:github": "npm run check && npm publish --registry https://npm.pkg.github.com/",
+    "release": "npm run ready-to-publish && npm run publish:npm && npm run publish:github && echo '✅ Published to npm and GitHub Packages!'"
   },
   "keywords": [
-    "ai",
-    "seo",
-    "llms",
-    "schema",
-    "json-ld",
-    "robots",
-    "crawler",
-    "middleware",
-    "ai-visibility",
+    "ai-seo",
     "llms.txt",
+    "ai-visibility",
+    "generative-engine-optimization",
+    "geo",
+    "answer-engine-optimization",
+    "aeo",
+    "ai-crawler",
     "gptbot",
-    "ai-optimization"
+    "claudebot",
+    "perplexitybot",
+    "json-ld",
+    "schema",
+    "robots.txt",
+    "bot-detection",
+    "nodejs",
+    "middleware",
+    "seo"
   ],
   "author": "Muhammad Faizan <muhammadfaizanjanjua109@gmail.com>",
   "license": "MIT",
@@ -54,6 +62,10 @@
     "url": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/issues"
   },
   "homepage": "https://github.com/Muhammadfaizanjanjua109/ai-visibility#readme",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/Muhammadfaizanjanjua109"
+  },
   "dependencies": {
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0",
@@ -90,6 +102,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ]
 }
