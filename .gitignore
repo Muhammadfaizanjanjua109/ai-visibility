@@ -19,7 +19,6 @@ Thumbs.db
 *.swo
 
 # IDE
-.vscode/settings.json
 .idea/
 
 # npm
@@ -29,4 +28,3 @@ yarn-error.log*
 config.bat
 temp_auto_push.bat
 temp_interactive_push.bat
-.env
