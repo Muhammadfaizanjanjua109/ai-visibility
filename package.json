@@ -1,14 +1,80 @@
 {
   "name": "ai-visibility",
-  "version": "0.2.7",
-  "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
+  "version": "0.3.0",
+  "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js or Next.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./detector": {
+      "import": {
+        "types": "./dist/detector.d.mts",
+        "default": "./dist/detector.mjs"
+      },
+      "require": {
+        "types": "./dist/detector.d.ts",
+        "default": "./dist/detector.js"
+      }
+    },
+    "./schema": {
+      "import": {
+        "types": "./dist/schema.d.mts",
+        "default": "./dist/schema.mjs"
+      },
+      "require": {
+        "types": "./dist/schema.d.ts",
+        "default": "./dist/schema.js"
+      }
+    },
+    "./generators": {
+      "import": {
+        "types": "./dist/generators.d.mts",
+        "default": "./dist/generators.mjs"
+      },
+      "require": {
+        "types": "./dist/generators.d.ts",
+        "default": "./dist/generators.js"
+      }
+    },
+    "./express": {
+      "import": {
+        "types": "./dist/express.d.mts",
+        "default": "./dist/express.mjs"
+      },
+      "require": {
+        "types": "./dist/express.d.ts",
+        "default": "./dist/express.js"
+      }
+    },
+    "./next": {
+      "import": {
+        "types": "./dist/next.d.mts",
+        "default": "./dist/next.mjs"
+      },
+      "require": {
+        "types": "./dist/next.d.ts",
+        "default": "./dist/next.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "detector": ["./dist/detector.d.ts"],
+      "schema": ["./dist/schema.d.ts"],
+      "generators": ["./dist/generators.d.ts"],
+      "express": ["./dist/express.d.ts"],
+      "next": ["./dist/next.d.ts"]
     }
   },
   "bin": {
@@ -49,6 +115,8 @@
     "robots.txt",
     "bot-detection",
     "nodejs",
+    "nextjs",
+    "edge-runtime",
     "middleware",
     "seo"
   ],
@@ -69,9 +137,7 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0",
-    "commander": "^12.0.0",
-    "pino": "^9.0.0",
-    "zod": "^3.22.0"
+    "commander": "^12.0.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -84,15 +150,20 @@
     "happy-dom": "^14.0.0",
     "husky": "^8.0.0",
     "lint-staged": "^15.0.0",
+    "next": "^14.2.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0"
   },
   "peerDependencies": {
-    "express": ">=4.0.0"
+    "express": ">=4.0.0",
+    "next": ">=13.0.0"
   },
   "peerDependenciesMeta": {
     "express": {
+      "optional": true
+    },
+    "next": {
       "optional": true
     }
   },

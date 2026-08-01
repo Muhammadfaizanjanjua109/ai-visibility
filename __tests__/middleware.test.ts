@@ -3,7 +3,7 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { AIBotDetector, HTMLOptimizer } from '../src/middleware/ai-detector'
+import { AIBotDetector, HTMLOptimizer } from '../src/middleware/detector'
 
 describe('AIBotDetector', () => {
     const detector = new AIBotDetector()

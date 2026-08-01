@@ -4,8 +4,8 @@
 // ============================================================
 
 // --- Middleware ---
-export { createAIMiddleware, optimizeResponseForAI } from './middleware/ai-detector'
-export { AIBotDetector } from './middleware/ai-detector'
+export { createAIMiddleware, optimizeResponseForAI } from './middleware/express-middleware'
+export { AIBotDetector, HTMLOptimizer } from './middleware/detector'
 
 // --- Generators ---
 export { RobotsGenerator } from './generators/robots-generator'
@@ -37,6 +37,14 @@ export type {
     ArticleSchemaData,
     OrganizationSchemaData,
     PersonSchemaData,
+    WebSiteSchemaData,
+    SoftwareApplicationSchemaData,
+    BreadcrumbItem,
+    BreadcrumbListOptions,
+    DefinedTermSchemaData,
+    DefinedTermSetSchemaData,
+    OfferSchemaData,
+    AggregateRatingSchemaData,
     AIReadabilityScore,
     AnalyzerOptions,
     CrawlerLog,

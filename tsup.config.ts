@@ -1,10 +1,15 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig([
-    // Main library bundle
+    // Main library bundle + subpath exports
     {
         entry: {
             index: 'src/index.ts',
+            detector: 'src/entrypoints/detector.ts',
+            schema: 'src/entrypoints/schema.ts',
+            generators: 'src/entrypoints/generators.ts',
+            express: 'src/entrypoints/express.ts',
+            next: 'src/entrypoints/next.ts',
         },
         format: ['cjs', 'esm'],
         dts: true,
@@ -12,7 +17,7 @@ export default defineConfig([
         sourcemap: true,
         clean: true,
         treeshake: true,
-        external: ['express', 'fastify'],
+        external: ['express', 'fastify', 'next'],
     },
     // CLI bundle (separate to avoid conflicts)
     {

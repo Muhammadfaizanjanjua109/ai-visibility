@@ -132,6 +132,69 @@ export interface PersonSchemaData {
     description?: string
 }
 
+export interface WebSiteSchemaData {
+    name: string
+    url: string
+    description?: string
+    /** Sitelinks searchbox. Omit if the site has no search. */
+    searchAction?: {
+        /** Full URL template, e.g. 'https://example.com/search?q={search_term_string}' */
+        urlTemplate: string
+        queryInput?: string
+    }
+}
+
+export interface SoftwareApplicationSchemaData {
+    name: string
+    description: string
+    url: string
+    applicationCategory?: string
+    operatingSystem?: string
+    offers?: OfferSchemaData
+    aggregateRating?: AggregateRatingSchemaData
+}
+
+export interface BreadcrumbItem {
+    name: string
+    /** Absolute URL, or relative path when `baseUrl` is passed to breadcrumbList() */
+    url: string
+}
+
+export interface BreadcrumbListOptions {
+    /** Resolves relative `url` values in breadcrumb items against this base */
+    baseUrl?: string
+}
+
+export interface DefinedTermSchemaData {
+    name: string
+    description: string
+    url?: string
+    /** URL of the DefinedTermSet (e.g. glossary index page) this term belongs to */
+    inDefinedTermSet?: string
+}
+
+export interface DefinedTermSetSchemaData {
+    name: string
+    url: string
+    description?: string
+}
+
+export interface OfferSchemaData {
+    price: number
+    priceCurrency?: string
+    availability?: 'InStock' | 'OutOfStock' | 'PreOrder'
+    url?: string
+    priceValidUntil?: string
+}
+
+export interface AggregateRatingSchemaData {
+    ratingValue: number
+    reviewCount?: number
+    ratingCount?: number
+    bestRating?: number
+    worstRating?: number
+}
+
 // ---- Analyzer ----
 
 export interface AnalysisIssue {

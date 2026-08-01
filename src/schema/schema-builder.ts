@@ -3,13 +3,21 @@
 // Feature 3: Auto-generate JSON-LD structured data
 // ============================================================
 
-import * as cheerio from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
 import type {
     FAQItem,
     ProductSchemaData,
     ArticleSchemaData,
     OrganizationSchemaData,
     PersonSchemaData,
+    WebSiteSchemaData,
+    SoftwareApplicationSchemaData,
+    BreadcrumbItem,
+    BreadcrumbListOptions,
+    DefinedTermSchemaData,
+    DefinedTermSetSchemaData,
+    OfferSchemaData,
+    AggregateRatingSchemaData,
 } from '../types'
 
 type SchemaObject = Record<string, unknown>
@@ -166,13 +174,145 @@ export class SchemaBuilder {
         return schema
     }
 
+    // ---- WebSite ----
+
+    static website(data: WebSiteSchemaData): SchemaObject {
+        const schema: SchemaObject = {
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: data.name,
+            url: data.url,
+        }
+
+        if (data.description) schema['description'] = data.description
+        if (data.searchAction) {
+            schema['potentialAction'] = {
+                '@type': 'SearchAction',
+                target: {
+                    '@type': 'EntryPoint',
+                    urlTemplate: data.searchAction.urlTemplate,
+                },
+                'query-input': data.searchAction.queryInput ?? 'required name=search_term_string',
+            }
+        }
+
+        return schema
+    }
+
+    // ---- SoftwareApplication ----
+
+    static softwareApplication(data: SoftwareApplicationSchemaData): SchemaObject {
+        const schema: SchemaObject = {
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: data.name,
+            description: data.description,
+            url: data.url,
+            applicationCategory: data.applicationCategory ?? 'DeveloperApplication',
+            operatingSystem: data.operatingSystem ?? 'Any',
+        }
+
+        if (data.offers) schema['offers'] = SchemaBuilder.offer(data.offers)
+        if (data.aggregateRating) schema['aggregateRating'] = SchemaBuilder.aggregateRating(data.aggregateRating)
+
+        return schema
+    }
+
+    // ---- BreadcrumbList ----
+
+    static breadcrumbList(items: BreadcrumbItem[], options: BreadcrumbListOptions = {}): SchemaObject {
+        return {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: items.map((item, index) => ({
+                '@type': 'ListItem',
+                position: index + 1,
+                name: item.name,
+                item: options.baseUrl ? new URL(item.url, options.baseUrl).toString() : item.url,
+            })),
+        }
+    }
+
+    // ---- DefinedTerm ----
+
+    static definedTerm(data: DefinedTermSchemaData): SchemaObject {
+        const schema: SchemaObject = {
+            '@context': 'https://schema.org',
+            '@type': 'DefinedTerm',
+            name: data.name,
+            description: data.description,
+        }
+
+        if (data.url) schema['url'] = data.url
+        if (data.inDefinedTermSet) schema['inDefinedTermSet'] = data.inDefinedTermSet
+
+        return schema
+    }
+
+    static definedTermSet(data: DefinedTermSetSchemaData): SchemaObject {
+        const schema: SchemaObject = {
+            '@context': 'https://schema.org',
+            '@type': 'DefinedTermSet',
+            name: data.name,
+            url: data.url,
+        }
+
+        if (data.description) schema['description'] = data.description
+
+        return schema
+    }
+
+    // ---- Offer ----
+
+    /**
+     * Builds an Offer node. Nested (no `@context`) — designed to be embedded
+     * in Product/SoftwareApplication schemas, e.g. via `offers`.
+     */
+    static offer(data: OfferSchemaData): SchemaObject {
+        const schema: SchemaObject = {
+            '@type': 'Offer',
+            price: data.price,
+            priceCurrency: data.priceCurrency ?? 'USD',
+        }
+
+        if (data.availability) schema['availability'] = `https://schema.org/${data.availability}`
+        if (data.url) schema['url'] = data.url
+        if (data.priceValidUntil) schema['priceValidUntil'] = data.priceValidUntil
+
+        return schema
+    }
+
+    // ---- AggregateRating ----
+
+    /**
+     * Builds an AggregateRating node. Nested (no `@context`) — designed to be
+     * embedded in Product/SoftwareApplication schemas.
+     */
+    static aggregateRating(data: AggregateRatingSchemaData): SchemaObject {
+        const schema: SchemaObject = {
+            '@type': 'AggregateRating',
+            ratingValue: data.ratingValue,
+        }
+
+        if (data.reviewCount !== undefined) schema['reviewCount'] = data.reviewCount
+        if (data.ratingCount !== undefined) schema['ratingCount'] = data.ratingCount
+        if (data.bestRating !== undefined) schema['bestRating'] = data.bestRating
+        if (data.worstRating !== undefined) schema['worstRating'] = data.worstRating
+
+        return schema
+    }
+
     // ---- Auto-detect from HTML ----
 
     /**
      * Analyze HTML content and auto-generate the most appropriate schema.
      * Uses heuristics to detect FAQ, Product, or Article patterns.
+     *
+     * Lazily loads `cheerio` on first call — this is the only SchemaBuilder
+     * method that pulls in a runtime dependency, which is why it's async.
      */
-    static fromHTML(html: string, hints: { author?: string; publisher?: string } = {}): SchemaObject {
+    static async fromHTML(html: string, hints: { author?: string; publisher?: string } = {}): Promise<SchemaObject> {
+        const cheerio = await import('cheerio')
         const $ = cheerio.load(html)
         const type = SchemaBuilder.detectType($)
 
@@ -224,7 +364,7 @@ export class SchemaBuilder {
 
     // ---- Private helpers ----
 
-    private static detectType($: cheerio.CheerioAPI): 'faq' | 'product' | 'article' {
+    private static detectType($: CheerioAPI): 'faq' | 'product' | 'article' {
         const text = $('body').text().toLowerCase()
         const h1 = $('h1').first().text().toLowerCase()
 
@@ -252,7 +392,7 @@ export class SchemaBuilder {
         return 'article'
     }
 
-    private static extractFAQs($: cheerio.CheerioAPI): FAQItem[] {
+    private static extractFAQs($: CheerioAPI): FAQItem[] {
         const faqs: FAQItem[] = []
 
         // Pattern 1: dt/dd pairs
@@ -274,7 +414,7 @@ export class SchemaBuilder {
         return faqs
     }
 
-    private static extractPrice($: cheerio.CheerioAPI): number | null {
+    private static extractPrice($: CheerioAPI): number | null {
         const text = $('body').text()
         const match = text.match(/\$\s*([\d,]+(?:\.\d{2})?)/)
         if (match) {
@@ -283,7 +423,7 @@ export class SchemaBuilder {
         return null
     }
 
-    private static extractFeatures($: cheerio.CheerioAPI): string[] {
+    private static extractFeatures($: CheerioAPI): string[] {
         const features: string[] = []
 
         // Look for feature lists
