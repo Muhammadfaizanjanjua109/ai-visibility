@@ -6,7 +6,7 @@
 import type { RobotsConfig } from '../types'
 import { AI_CRAWLERS } from '../data/crawlers'
 
-const DEFAULT_DISALLOW = ['/admin', '/api', '/private', '/_next', '/static']
+const DEFAULT_DISALLOW: string[] = []
 
 /**
  * RobotsGenerator

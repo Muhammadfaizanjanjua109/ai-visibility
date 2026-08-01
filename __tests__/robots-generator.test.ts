@@ -81,4 +81,15 @@ describe('RobotsGenerator', () => {
         const content = gen.generate()
         expect(content).toContain('Crawl-delay: 10')
     })
+
+    it('generates no Disallow lines when no disallow option is passed', () => {
+        const gen = new RobotsGenerator()
+        const content = gen.generate()
+        expect(content).not.toMatch(/^Disallow:/m)
+    })
+
+    it('allowAll() generates no Disallow lines by default', () => {
+        const content = RobotsGenerator.allowAll()
+        expect(content).not.toMatch(/^Disallow:/m)
+    })
 })
