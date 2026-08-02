@@ -18,7 +18,7 @@ The **AI Visibility Dashboard** is a free, self-hosted analytics dashboard inclu
 ### 1. Install Package
 
 ```bash
-npm install @mfaizanjanjua109/ai-visibility
+npm install ai-visibility
 ```
 
 ### 2. Set Up Crawler Tracking
@@ -28,7 +28,7 @@ First, add the logger middleware to track AI crawler visits:
 **Express.js:**
 ```ts
 import express from 'express'
-import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from 'ai-visibility'
 
 const app = express()
 const logger = new AIVisitorLogger({ storage: 'file' })
@@ -49,7 +49,7 @@ app.get('/admin/ai-visibility', (req, res) => {
 **Next.js 13+ (App Router):**
 ```tsx
 // app/admin/ai-visibility/page.tsx
-import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from 'ai-visibility'
 
 export default function DashboardPage() {
   const logger = new AIVisitorLogger({ storage: 'file' })
@@ -72,7 +72,7 @@ export default function DashboardPage() {
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { AIVisitorLogger, createDashboard } from '@mfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger, createDashboard } from 'ai-visibility'
 
 const dashboardHtml = ref('')
 
