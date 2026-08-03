@@ -1,448 +1,137 @@
 # Release Workflow
 
-Safe and automatic publishing to npm + GitHub Packages with one command.
+Single registry (npm), unscoped package name `ai-visibility`. Publishing
+happens in CI, triggered by pushing a version tag — not by running
+`npm publish` locally.
 
 ---
 
-## 🚀 Quick Release (Recommended)
-
-**One command does everything:**
-
-```bash
-npm run release
-```
-
-This automatically:
-1. ✅ Runs TypeScript type checking
-2. ✅ Runs ESLint linting
-3. ✅ Runs all tests
-4. ✅ Builds the package
-5. ✅ Bumps version (0.1.1 → 0.1.2)
-6. ✅ Creates git commit
-7. ✅ Creates git tag
-8. ✅ Publishes to npm registry
-9. ✅ Publishes to GitHub Packages
-10. ✅ Confirms success
-
-**Time:** ~40-50 seconds
-
----
-
-## 📋 Two-Step Workflow (More Control)
-
-If you prefer to validate before publishing:
-
-### Step 1: Validate Everything
-```bash
-npm run ready-to-publish
-```
-
-Output:
-```
-✓ TypeScript type checking
-✓ ESLint linting
-✓ All tests (42 passed)
-✓ Production build successful
-
-✅ All checks passed! Safe to publish.
-Run: npm run publish:both
-```
-
-### Step 2: Publish (When Ready)
-```bash
-npm run publish:both
-```
-
-This runs:
-- All checks again (safety)
-- Version bump (0.1.1 → 0.1.2)
-- Publishes to npm
-- Publishes to GitHub Packages
-- Shows success message
-
----
-
-## 🔄 What Each Command Does
-
-### `npm run release` (Full Workflow)
-```bash
-npm run release
-↓
-npm run ready-to-publish (validates everything)
-↓
-npm run publish:both (publishes to both registries)
-```
-
-**Use when:** You're ready to release immediately
-
-### `npm run ready-to-publish` (Validation Only)
-```bash
-npm run ready-to-publish
-↓
-Runs all checks
-↓
-Tells you if safe to publish
-```
-
-**Use when:** You want to validate before committing
-
-### `npm run publish:both` (Publish Only)
-```bash
-npm run publish:both
-↓
-Runs all checks again
-↓
-Bumps version
-↓
-Publishes to npm
-↓
-Publishes to GitHub Packages
-```
-
-**Use when:** Ready to publish after validation
-
-### `npm run check` (Quick Check)
-```bash
-npm run check
-↓
-TypeScript check
-↓
-ESLint check
-↓
-Tests
-↓
-Build
-```
-
-**Use when:** Testing locally, checking before commit
-
----
-
-## 📊 Release Checklist
-
-Before running `npm run release`:
-
-- [ ] All code changes committed
-- [ ] All feature branches merged to main
-- [ ] No uncommitted changes in working directory
-- [ ] Ready for version bump (0.1.1 → 0.1.2)
-
-**Then:**
-```bash
-npm run release
-```
-
----
-
-## 🛡️ Safety Features
-
-### Automatic Validation
-Every step in the release process includes:
-1. ✅ Type checking (catches TypeScript errors)
-2. ✅ Linting (catches code quality issues)
-3. ✅ Tests (catches logic errors)
-4. ✅ Build (catches compilation errors)
-
-### Version Management
-- `npm version` automatically:
-  - Bumps package.json version
-  - Creates git commit
-  - Creates git tag
-  - Locks the version in git history
-
-### Dual Publishing
-- npm registry and GitHub Packages are both published
-- If one fails, both fail (atomic operation)
-- Both get the exact same version
-
----
-
-## 📈 Example Release Session
-
-```bash
-$ npm run release
-
-Running: npm run ready-to-publish
-
-> @Muhammadfaizanjunjua109/ai-visibility@0.1.1 check
-> npm run typecheck && npm run lint && npm run test && npm run build
-
-✓ TypeScript compilation successful
-✓ ESLint validation passed
-✓ 42 tests passed in 2.4s
-✓ Build successful (dist/index.js 39.32 KB)
-
-✅ All checks passed! Safe to publish.
-Run: npm run publish:both
-
-Running: npm run publish:both
-
-> npm version patch
-v0.1.2
-
-> npm publish --registry https://registry.npmjs.org/
-✓ Published @Muhammadfaizanjunjua109/ai-visibility@0.1.2 to npm
-
-> npm publish --registry https://npm.pkg.github.com
-✓ Published @Muhammadfaizanjunjua109/ai-visibility@0.1.2 to GitHub Packages
-
-✅ Published to npm and GitHub Packages!
-```
-
----
-
-## ❌ If Something Fails
-
-### TypeScript Errors
-```bash
-src/index.ts:5:10 - error TS2345: Type 'string' not assignable to type 'number'
-```
-
-**Fix:**
-```bash
-# Edit file
-vim src/index.ts
-
-# Try again
-npm run release
-```
-
-### Linting Errors
-```bash
-src/index.ts:3:1 - error: unused variable 'x'
-```
-
-**Fix:**
-```bash
-# Auto-fix
-npm run lint:fix
-
-# Or manually fix
-vim src/index.ts
-
-# Try again
-npm run release
-```
-
-### Test Failures
-```bash
-FAIL __tests__/middleware.test.ts
-```
-
-**Fix:**
-```bash
-# Run tests in watch mode
-npm run test:watch
-
-# Fix failing test
-vim __tests__/middleware.test.ts
-
-# Try again
-npm run release
-```
-
-### Build Errors
-```bash
-tsup: error: Cannot find module 'missing-package'
-```
-
-**Fix:**
-```bash
-# Install missing dependency
-npm install missing-package
-
-# Try again
-npm run release
-```
-
----
-
-## 🔐 Security Best Practices
-
-### Before Every Release
-
-1. **Ensure clean working directory:**
+## How a release actually happens
+
+1. **Land your changes on `main`** as normal commits (each one already
+   validated locally with `npm run check`).
+
+2. **Bump the version** in `package.json` by hand, matching the size of
+   what changed:
+   - `patch` (`0.4.0` → `0.4.1`) — bug fixes, docs
+   - `minor` (`0.4.0` → `0.5.0`) — new backward-compatible functionality
+   - `major` (`0.4.0` → `1.0.0`) — breaking changes
+
+   This project doesn't use `npm version <bump>` for this step — it stamps
+   an auto-generated commit message and tag immediately, which doesn't fit
+   how this repo writes descriptive commit messages and batches a
+   version bump with its `CHANGELOG.md` entry in one commit.
+
+3. **Add a `CHANGELOG.md` entry** for the new version (Keep a Changelog
+   format — see existing entries for the shape). Note explicitly whether
+   the bump is a patch or something more, and why, if it's not obvious.
+
+4. **Verify before tagging** — this is the same verification used for
+   0.3.0 through 0.4.0:
    ```bash
-   git status
-   # Should show: "On branch main, nothing to commit"
+   npm run check                                    # typecheck, lint, test, build
+   npm pack --pack-destination /some/scratch/dir     # inspect exactly what will publish
+   ```
+   Then, in scratch consumer projects (ESM `"type": "module"` and plain
+   CJS), install the packed tarball and confirm the root import and every
+   subpath (`ai-visibility/detector`, `/schema`, `/generators`, `/express`,
+   `/next`) resolve correctly in both module systems:
+   ```bash
+   npm install /path/to/ai-visibility-X.Y.Z.tgz
+   node -e "require('ai-visibility')"                # CJS root
+   node --input-type=module -e "import('ai-visibility')"  # ESM root
+   # ...repeat for each subpath
+   ```
+   Then run `@arethetypeswrong/cli` against the packed tarball and confirm
+   no problems across all resolution modes (node10, node16 from-CJS,
+   node16 from-ESM, bundler):
+   ```bash
+   npx @arethetypeswrong/cli --pack .
    ```
 
-2. **Verify remote is up-to-date:**
+5. **Commit** the version bump + CHANGELOG together:
    ```bash
-   git pull origin main
+   git add package.json CHANGELOG.md
+   git commit -m "chore: bump to X.Y.Z, changelog"
+   git push origin main
    ```
 
-3. **Run release:**
+6. **Tag and push the tag** — this is the step that actually triggers a
+   publish:
    ```bash
-   npm run release
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
-4. **Verify published:**
-   ```bash
-   # Check npm
-   npm view @Muhammadfaizanjunjua109/ai-visibility@latest
+7. **CI takes it from here.** `.github/workflows/publish.yml` triggers on
+   any `v*` tag push: installs, runs the test suite, builds, and publishes
+   to `registry.npmjs.org` using npm's **trusted publisher (OIDC)**
+   mechanism — no `NPM_TOKEN` secret involved. Watch the run under the
+   repo's **Actions** tab.
 
-   # Check GitHub Packages
-   curl -s https://npm.pkg.github.com/@Muhammadfaizanjunjua109/ai-visibility | jq '.version'
+8. **Verify it actually published:**
+   ```bash
+   npm view ai-visibility version
+   # should print the version you just tagged
    ```
+
+That's the whole loop. There is no separate "publish" command you run
+locally in the normal case — pushing the tag *is* publishing.
 
 ---
 
-## 📋 Version Bump Strategy
+## Manual fallback (CI unavailable only)
 
-### Current Setup
-Uses `npm version patch` which:
-- Bumps: 0.1.1 → 0.1.2 (patch)
-- Best for: Bug fixes
+If the Actions run fails for infrastructure reasons (not a real check
+failure) and you need to publish immediately, `npm run publish:npm` will
+do a local publish. This requires you to be logged in locally with
+publish rights on the `ai-visibility` package (`npm login`) — it does
+**not** use the OIDC trusted-publisher path, since that's CI-only by
+design. Prefer fixing and re-running the CI job over this path; it exists
+as a break-glass option, not a routine one.
 
-### To Bump Minor (New Features)
 ```bash
-npm version minor
-npm publish --registry https://registry.npmjs.org/
-npm publish --registry https://npm.pkg.github.com
-```
-- Bumps: 0.1.1 → 0.2.0 (minor)
-
-### To Bump Major (Breaking Changes)
-```bash
-npm version major
-npm publish --registry https://registry.npmjs.org/
-npm publish --registry https://npm.pkg.github.com
-```
-- Bumps: 0.1.1 → 1.0.0 (major)
-
----
-
-## 🎯 Recommended Release Process
-
-1. **Make and test changes:**
-   ```bash
-   git checkout -b feature/new-feature
-   # Edit code
-   npm run check  # Validate locally
-   git commit -m "feature: add new thing"
-   ```
-
-2. **Create Pull Request:**
-   ```bash
-   git push origin feature/new-feature
-   # Create PR on GitHub
-   # Get review approval
-   # Merge to main
-   ```
-
-3. **Release:**
-   ```bash
-   git checkout main
-   git pull origin main
-   npm run release
-   ```
-
-4. **Verify:**
-   ```bash
-   npm view @Muhammadfaizanjunjua109/ai-visibility@latest version
-   # Should show: 0.1.2
-   ```
-
----
-
-## 💡 Tips
-
-### Fast Release Flow
-```bash
-# After merging PR to main:
-npm run release  # One command, done!
-```
-
-### Validate Before Committing
-```bash
-# In feature branch:
-npm run check    # Runs all checks locally
-git add .
-git commit -m "feature: ..."
-git push
-```
-
-### Check What Will Be Published
-```bash
-npm pack
-# Creates ai-visibility-0.1.2.tgz
-# Shows exactly what will be published
-```
-
-### See Version History
-```bash
-git log --oneline -10
-# Shows all version tags and commits
+npm run publish:npm
 ```
 
 ---
 
-## 📞 Troubleshooting
+## If the CI publish step fails
 
-### "npm version patch failed"
-**Reason:** Uncommitted changes or git issues
-
-**Fix:**
-```bash
-git status          # Check for uncommitted changes
-git add .           # Stage changes if needed
-npm run release     # Try again
-```
-
-### "Publishing to npm failed"
-**Reason:** Missing NPM_TOKEN secret
-
-**Fix:**
-1. Create npm access token: https://www.npmjs.com/settings/~/tokens
-2. Add to GitHub repository secrets:
-   - Go to Settings → Secrets and Variables → Actions
-   - Add `NPM_TOKEN` with your token
-
-### "GitHub Packages publishing failed"
-**Reason:** Missing authentication
-
-**Fix:**
-```bash
-# Create personal access token (GitHub)
-# https://github.com/settings/tokens
-
-# Add to ~/.npmrc:
-@Muhammadfaizanjunjua109:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_TOKEN
-
-# Try again
-npm run release
-```
+- **Failed at typecheck/lint/test/build** — same failure you'd get from
+  `npm run check` locally. Fix on `main`, bump the patch version again if
+  the tag was already pushed (tags are immutable in this workflow — don't
+  force-move a tag; cut a new patch version and a new tag instead), and
+  re-tag.
+- **Failed at the publish step itself with an auth/OIDC error** — check
+  the package's **Trusted Publishers** setting on its npmjs.com settings
+  page against the repo/workflow this Action runs from. This is
+  configured on npm's side, not in this repo, so a repo-side fix (e.g.
+  editing `publish.yml`) won't resolve a broken trust link.
+- **Tag pushed, no workflow run appears at all** — confirm the tag
+  actually matches the `v*` pattern (`v0.4.1`, not `0.4.1` or `release-0.4.1`).
 
 ---
 
-## 📚 Command Reference
+## Command reference
 
-| Command | Purpose | Time |
-|---------|---------|------|
-| `npm run check` | Validate locally | ~15s |
-| `npm run ready-to-publish` | Check if safe to publish | ~15s |
-| `npm run publish:both` | Publish to both registries | ~30s |
-| `npm run release` | Full release workflow | ~45s |
-
----
-
-## ✅ Success Indicators
-
-### Release Complete
-```
-✅ Published to npm and GitHub Packages!
-```
-
-Both registries updated with new version.
-
-### Check Verification
-```bash
-npm view @Muhammadfaizanjunjua109/ai-visibility versions
-# Should show your new version in the list
-```
+| Command | Purpose |
+|---|---|
+| `npm run check` | Typecheck, lint, test, build — run before every commit |
+| `npm run ready-to-publish` | Same as `check`, with a confirmation message |
+| `npm run publish:npm` | Manual local publish — CI-unavailable fallback only |
+| `npm pack` | See exactly what will ship in the published tarball |
 
 ---
 
-**You're ready to release!** 🚀
+## What changed from the old dual-registry process
+
+This repo used to attempt publishing to both npm and GitHub Packages
+under a scoped package name. That was abandoned — GitHub Packages
+requires a scoped name matching the GitHub org/user, which is incompatible
+with the current unscoped `ai-visibility` name on npm — and the
+`publish.yml` workflow, `package.json` scripts, and the `.npmrc` that
+locked the old scope to GitHub Packages have all been removed or updated
+to match. If you find a doc, script, or `.npmrc` entry anywhere in this
+repo still describing the dual-registry/scoped-name process, it's stale;
+this document is the current source of truth.

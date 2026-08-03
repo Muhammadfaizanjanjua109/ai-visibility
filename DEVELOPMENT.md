@@ -202,24 +202,10 @@ Before pushing to main:
 
 ### For maintainers only
 
-```bash
-# Ensure everything is committed and working
-npm run check
-
-# Bump version and publish to both registries
-npm run publish:both
-
-# This will:
-# 1. Bump patch version (0.1.1 → 0.1.2)
-# 2. Create git commit
-# 3. Create git tag (v0.1.2)
-# 4. Publish to npm registry
-# 5. Publish to GitHub Packages
-
-# If something goes wrong, you can undo:
-git reset --hard HEAD~1  # Undo last commit
-git tag -d v0.1.2       # Delete tag
-```
+Publishing is tag-triggered, not a local `npm publish` — see
+[RELEASE_WORKFLOW.md](./RELEASE_WORKFLOW.md) for the full process. In short:
+bump the version, update `CHANGELOG.md`, commit, then
+`git tag vX.Y.Z && git push origin vX.Y.Z` — CI publishes to npm from there.
 
 ---
 
@@ -337,7 +323,7 @@ Before publishing a new version:
 | `npm run test:coverage` | Generate coverage report | ~10s |
 | `npm run build` | Production build | ~5s |
 | `npm run dev` | Development with watch | ∞ (interactive) |
-| `npm run publish:both` | Publish to npm + GitHub | ~30s |
+| `npm run publish:npm` | Manual publish fallback — see [RELEASE_WORKFLOW.md](./RELEASE_WORKFLOW.md) | ~30s |
 
 ---
 
