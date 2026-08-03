@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.2] - 2026-08-03
+
+### Added
+
+- **Framework integration guide and verified examples** for Nuxt, Vue (Vite SPA), React (Vite SPA), and React Router (framework mode). See `docs/framework-integration.md` and the new `examples/nuxt-app`, `examples/vue-vite-spa`, `examples/react-vite-spa`, `examples/react-router-app` directories. Every recipe was scaffolded, built, and exercised with real `curl` requests during development — not written from memory. All recipes use the subpath exports (`ai-visibility/detector`, `/generators`, `/schema`) rather than the root barrel.
+- Explicit documentation of what a no-server SPA (Vue/React + Vite, statically deployed) can and can't do with this package: build-time `robots.txt`/`llms.txt` generation and build-time JSON-LD injection work; request-time bot detection and HTML optimization don't, because there's no server-side request to run them against.
+
+No code changes in this release — docs and examples only. (`detectAndOptimize`'s bug fix, found while verifying the Nuxt recipe, shipped separately in 0.3.1 below.)
+
 ## [0.3.1] - 2026-08-03
 
 ### Fixed

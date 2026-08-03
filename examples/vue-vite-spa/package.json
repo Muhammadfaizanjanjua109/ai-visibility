@@ -1,0 +1,23 @@
+{
+  "name": "vue-vite-spa-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@unhead/vue": "^3.2.3",
+    "ai-visibility": "^0.3.1",
+    "vue": "^3.5.40"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.2.0",
+    "vue-tsc": "^3.3.8"
+  }
+}

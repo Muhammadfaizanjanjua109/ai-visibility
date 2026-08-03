@@ -63,27 +63,27 @@ As of **0.3.0**, `ai-visibility` ships as subpaths in addition to the root barre
 | Import | Contains | Runtime deps | Edge-safe |
 |---|---|---|:---:|
 | `ai-visibility` | Everything (barrel) — unchanged from 0.2.x | all | ❌ |
-| `ai-visibility/detector` | `AIBotDetector`, `HTMLOptimizer`, bot registry | **none** | ✅ |
+| `ai-visibility/detector` | `AIBotDetector`, `HTMLOptimizer`, `detectAndOptimize()`, bot registry | **none** | ✅ |
 | `ai-visibility/schema` | `SchemaBuilder` | **none**¹ | ✅¹ |
 | `ai-visibility/generators` | `RobotsGenerator`, `LLMSTextGenerator` | **none** | ✅ |
 | `ai-visibility/express` | `createAIMiddleware`, `optimizeResponseForAI`, `AIVisitorLogger` | `express` (optional peer) | ❌ Node only |
-| `ai-visibility/next` | `createNextMiddleware`, `detectAndOptimize` | `next` (optional peer) | ✅ |
+| `ai-visibility/next` | `createNextMiddleware` (+ `detectAndOptimize`, re-exported for convenience) | `next` (optional peer) | ✅ |
 
 ¹ Every `SchemaBuilder` method is dependency-free except `fromHTML()`, which lazily loads `cheerio` on first call (dynamic `import()`, not a static one) — so importing `ai-visibility/schema` never pulls it in unless you actually call `fromHTML()`.
 
 The root `ai-visibility` import still re-exports everything, so **0.2.x code keeps working with no changes**. Subpaths are opt-in for people who want a smaller, edge-safe bundle.
 
 ```typescript
-// Edge-safe, zero dependencies:
-import { AIBotDetector } from 'ai-visibility/detector'
+// Edge-safe, zero dependencies — works in any runtime, any framework:
+import { AIBotDetector, detectAndOptimize } from 'ai-visibility/detector'
 import { SchemaBuilder } from 'ai-visibility/schema'
 import { RobotsGenerator, LLMSTextGenerator } from 'ai-visibility/generators'
 
 // Node-only:
 import { createAIMiddleware, AIVisitorLogger } from 'ai-visibility/express'
 
-// Next.js (edge-safe):
-import { createNextMiddleware, detectAndOptimize } from 'ai-visibility/next'
+// Next.js specifically (edge-safe):
+import { createNextMiddleware } from 'ai-visibility/next'
 ```
 
 ---
@@ -109,10 +109,10 @@ export const middleware = createNextMiddleware({
 export const config = { matcher: ['/:path*'] }
 ```
 
-For a framework-agnostic version that transforms HTML directly (any runtime, no request/response objects):
+For a framework-agnostic version that transforms HTML directly (any runtime, no request/response objects — this is what powers the [Nuxt](./docs/framework-integration.md#nuxt) and other framework recipes below, and doesn't need `next` installed):
 
 ```typescript
-import { detectAndOptimize } from 'ai-visibility/next'
+import { detectAndOptimize } from 'ai-visibility/detector'
 
 const { isBot, botName, html } = detectAndOptimize(rawHtml, userAgent, {
   stripJs: true,
@@ -467,6 +467,10 @@ import type {
 
 ---
 
+## Upgrading to 0.3.1
+
+- **`detectAndOptimize()` bug fix:** it's now exported from `ai-visibility/detector` (its real, zero-dependency home). Previously it only lived in `ai-visibility/next`, which crashes on import without `next` installed — so the "framework-agnostic" helper only actually worked inside Next.js projects. `ai-visibility/next` still re-exports it, so existing `next` imports are unaffected.
+
 ## Upgrading to 0.3.0
 
 - **`robots.txt` bug fix:** `RobotsGenerator`'s default `disallow` list used to include `/_next`, `/admin`, `/api`, `/private`, `/static` — meaning every Next.js site using the defaults was telling AI crawlers not to fetch its own JS/CSS chunks. The default is now empty; pass your own `disallow` list explicitly if you need one. **If you're on 0.2.x and used the defaults, regenerate your `robots.txt`.**
@@ -497,14 +501,26 @@ import type {
 
 - **[Dashboard Guide](./DASHBOARD_GUIDE.md)** — Free tier analytics dashboard with real-time AI crawler tracking
 - **[API Reference](./docs/api-reference.md)** — Complete API documentation with all types and methods
+- **[Framework Integration Guide](./docs/framework-integration.md)** — Nuxt, Vue, React (SPA and server), and what's actually possible in each
 - **[Troubleshooting Guide](./docs/troubleshooting.md)** — Common issues and solutions
 - **[Performance Guide](./docs/performance.md)** — Benchmarks and optimization tips
 
-## Framework Examples
+## Framework Support
 
-- **[Next.js](./examples/nextjs-app)** — Integration with Next.js 13+
-- **[Nuxt](./examples/nuxt-app)** — Integration with Nuxt 3
-- **[SvelteKit](./examples/sveltekit-app)** — Integration with SvelteKit
+Express and Next.js are covered above. For everything else, see the
+**[Framework Integration Guide](./docs/framework-integration.md)** for the
+full story — in short:
+
+| Framework | Has a server? | What works |
+|---|---|---|
+| Nuxt (Nitro) | Yes | Full integration — see [`examples/nuxt-app`](./examples/nuxt-app) |
+| React Router (framework mode) / Remix / Astro (server) / TanStack Start | Yes | Full integration — see [`examples/react-router-app`](./examples/react-router-app) |
+| Vue SPA (Vite, no server) | No | Build-time file generation + build-time JSON-LD only — see [`examples/vue-vite-spa`](./examples/vue-vite-spa) |
+| React SPA (Vite/CRA, no server) | No | Same as Vue SPA — see [`examples/react-vite-spa`](./examples/react-vite-spa) |
+
+A SPA with no server genuinely can't run this package's middleware or bot
+detection — there's no request to detect a crawler on. The guide is
+explicit about this rather than implying otherwise.
 
 ## Contributing
 
