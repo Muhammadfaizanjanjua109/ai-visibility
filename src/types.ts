@@ -33,6 +33,16 @@ export interface BotInfo {
     company: string
     userAgentPattern: string
     purpose: 'training' | 'search' | 'indexing' | 'unknown'
+    /**
+     * Whether this entry's user-agent token has been confirmed against the
+     * vendor's own published documentation (not a third-party/SEO-blog list).
+     * Undefined for user-supplied custom bots, where verification doesn't apply.
+     */
+    verified?: boolean
+    /** Vendor (or best available) documentation URL this entry was checked against. */
+    sourceUrl?: string
+    /** ISO 8601 date this entry was last checked against `sourceUrl`. */
+    lastChecked?: string
 }
 
 // ---- Generators ----

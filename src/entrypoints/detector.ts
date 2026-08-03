@@ -6,5 +6,5 @@
 
 export { AIBotDetector, HTMLOptimizer, detectAndOptimize } from '../middleware/detector'
 export type { DetectAndOptimizeOptions, DetectAndOptimizeResult } from '../middleware/detector'
-export { AI_CRAWLERS, detectBot } from '../data/crawlers'
+export { AI_CRAWLERS, detectBot, getUnverifiedBots } from '../data/crawlers'
 export type { BotInfo, AIMiddlewareConfig, AIOptimizationOptions } from '../types'
