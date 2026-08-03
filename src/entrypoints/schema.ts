@@ -6,3 +6,18 @@
 // ============================================================
 
 export { SchemaBuilder } from '../schema/schema-builder'
+export type {
+    FAQItem,
+    ProductSchemaData,
+    ArticleSchemaData,
+    OrganizationSchemaData,
+    PersonSchemaData,
+    WebSiteSchemaData,
+    SoftwareApplicationSchemaData,
+    BreadcrumbItem,
+    BreadcrumbListOptions,
+    DefinedTermSchemaData,
+    DefinedTermSetSchemaData,
+    OfferSchemaData,
+    AggregateRatingSchemaData,
+} from '../types'

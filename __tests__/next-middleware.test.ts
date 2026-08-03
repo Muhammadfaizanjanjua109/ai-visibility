@@ -77,6 +77,67 @@ describe('createNextMiddleware', () => {
     })
 })
 
+describe('createNextMiddleware onDetect + waitUntil', () => {
+    function makeEvent() {
+        return { waitUntil: vi.fn() }
+    }
+
+    it('registers an async onDetect promise with event.waitUntil() before returning', async () => {
+        let resolveOnDetect: () => void
+        const onDetect = vi.fn(() => new Promise<void>((resolve) => { resolveOnDetect = resolve }))
+        const event = makeEvent()
+        const middleware = createNextMiddleware({ onDetect })
+
+        const res = middleware(makeRequest(BOT_UA), event as any)
+
+        // The response comes back immediately — waitUntil is what keeps the
+        // async onDetect work alive after that, not something blocking it.
+        expect(res.headers.get('x-ai-crawler')).toBe('GPTBot')
+        // event.waitUntil must already be registered by the time the call
+        // returns — synchronously, not on some later microtask — otherwise
+        // the runtime has no way to know to keep the context alive at all.
+        expect(event.waitUntil).toHaveBeenCalledTimes(1)
+
+        const registeredPromise = event.waitUntil.mock.calls[0][0]
+        resolveOnDetect!()
+        await expect(registeredPromise).resolves.toBeUndefined()
+    })
+
+    it('a rejecting onDetect does not throw and does not break the response', async () => {
+        const onDetect = vi.fn(() => Promise.reject(new Error('analytics endpoint down')))
+        const event = makeEvent()
+        const middleware = createNextMiddleware({ onDetect })
+
+        const res = middleware(makeRequest(BOT_UA), event as any)
+
+        expect(res.headers.get('x-ai-crawler')).toBe('GPTBot')
+        expect(event.waitUntil).toHaveBeenCalledTimes(1)
+
+        const registeredPromise = event.waitUntil.mock.calls[0][0]
+        // Must not reject — a failing onDetect is swallowed here specifically
+        // so it can never become an unhandled rejection.
+        await expect(registeredPromise).resolves.toBeUndefined()
+    })
+
+    it('a synchronous onDetect never touches event.waitUntil', () => {
+        const onDetect = vi.fn()
+        const event = makeEvent()
+        const middleware = createNextMiddleware({ onDetect })
+
+        middleware(makeRequest(BOT_UA), event as any)
+
+        expect(onDetect).toHaveBeenCalledTimes(1)
+        expect(event.waitUntil).not.toHaveBeenCalled()
+    })
+
+    it('still works with no event argument at all (back-compat)', () => {
+        const onDetect = vi.fn(() => Promise.resolve())
+        const middleware = createNextMiddleware({ onDetect })
+
+        expect(() => middleware(makeRequest(BOT_UA))).not.toThrow()
+    })
+})
+
 describe('detectAndOptimize', () => {
     const html = '<html><head><script src="analytics.js"></script></head><body>Hello</body></html>'
 

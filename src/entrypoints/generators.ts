@@ -5,3 +5,4 @@
 
 export { RobotsGenerator } from '../generators/robots-generator'
 export { LLMSTextGenerator } from '../generators/llms-generator'
+export type { RobotsConfig, LLMSConfig, LLMSPage } from '../types'

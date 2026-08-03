@@ -6,9 +6,11 @@
 // ============================================================
 
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import type { NextFetchEvent, NextRequest } from 'next/server'
 import { AIBotDetector } from '../middleware/detector'
 import type { BotInfo } from '../types'
+
+export type { BotInfo }
 
 // detectAndOptimize is framework-agnostic and carries no dependency on `next` —
 // it lives in the zero-dep detector module (also reachable from ai-visibility/detector)
@@ -27,20 +29,42 @@ export interface NextMiddlewareOptions {
     headerName?: string
     /** Rewrite the request to this pathname when a bot is detected. String or a function of (bot, req). */
     rewrite?: string | ((bot: BotInfo, req: NextRequest) => string)
-    /** Called when a bot is detected — use for logging/analytics */
-    onDetect?: (bot: BotInfo, req: NextRequest) => void
+    /**
+     * Called when a bot is detected — use for logging/analytics. May return
+     * a Promise. When it does, and the runtime passes a `NextFetchEvent` as
+     * the middleware's second argument (which Next.js always does), that
+     * promise is registered with `event.waitUntil()` so the work isn't
+     * silently dropped once the response is sent — without this, an async
+     * onDetect can get torn down mid-flight the moment the response goes
+     * out, since nothing was holding the execution context open for it.
+     */
+    onDetect?: (bot: BotInfo, req: NextRequest) => void | Promise<void>
 }
 
 /**
  * createNextMiddleware
  *
- * For Next.js App Router `middleware.ts`. Detects AI crawlers and, per
+ * For Next.js App Router `proxy.ts` (called `middleware.ts` before Next.js 16
+ * — same function, just a renamed file/export). Detects AI crawlers and, per
  * options, sets a header marking the request as a bot, rewrites to an
  * alternate route, and/or fires an onDetect callback for logging.
  *
  * @example
  * ```ts
- * // middleware.ts
+ * // proxy.ts (Next.js 16+)
+ * import { createNextMiddleware } from 'ai-visibility/next'
+ *
+ * export default createNextMiddleware({
+ *   rewrite: '/ai-landing',
+ *   onDetect: async (bot) => {
+ *     await logCrawlerVisit(bot) // safely kept alive via event.waitUntil()
+ *   },
+ * })
+ * ```
+ *
+ * @example
+ * ```ts
+ * // middleware.ts (Next.js < 16, or the deprecated-but-still-working path on 16)
  * import { createNextMiddleware } from 'ai-visibility/next'
  *
  * export const middleware = createNextMiddleware({
@@ -56,7 +80,7 @@ export function createNextMiddleware(options: NextMiddlewareOptions = {}) {
     })
     const headerName = options.headerName ?? 'x-ai-crawler'
 
-    return function aiNextMiddleware(req: NextRequest): NextResponse {
+    return function aiNextMiddleware(req: NextRequest, event?: NextFetchEvent): NextResponse {
         const userAgent = req.headers.get('user-agent') ?? ''
         const bot = detector.detect(userAgent)
 
@@ -64,7 +88,15 @@ export function createNextMiddleware(options: NextMiddlewareOptions = {}) {
             return NextResponse.next()
         }
 
-        options.onDetect?.(bot, req)
+        if (options.onDetect) {
+            const result = options.onDetect(bot, req)
+            if (result && typeof result.then === 'function') {
+                // Swallow rejections here specifically: a failing analytics/log
+                // call in onDetect must never surface as an unhandled rejection
+                // or affect the response already being returned below.
+                event?.waitUntil(result.catch(() => undefined))
+            }
+        }
 
         if (options.rewrite) {
             const target = typeof options.rewrite === 'function' ? options.rewrite(bot, req) : options.rewrite

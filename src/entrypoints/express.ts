@@ -6,3 +6,10 @@
 
 export { createAIMiddleware, optimizeResponseForAI } from '../middleware/express-middleware'
 export { AIVisitorLogger } from '../monitor/visitor-logger'
+export type {
+    AIMiddlewareConfig,
+    AIOptimizationOptions,
+    CrawlerLog,
+    LoggerConfig,
+    BotStatsSerialized,
+} from '../types'

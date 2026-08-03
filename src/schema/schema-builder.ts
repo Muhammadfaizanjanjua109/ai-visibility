@@ -201,6 +201,23 @@ export class SchemaBuilder {
 
     // ---- SoftwareApplication ----
 
+    /**
+     * `data.offers` and `data.aggregateRating` take raw `OfferSchemaData` /
+     * `AggregateRatingSchemaData` — plain input objects, not pre-built nodes.
+     * Don't call `SchemaBuilder.offer()`/`aggregateRating()` yourself first;
+     * this method does that internally so there's one Offer/AggregateRating
+     * implementation, not two.
+     *
+     * @example
+     * ```ts
+     * SchemaBuilder.softwareApplication({
+     *   name: 'MyApp',
+     *   description: 'AI visibility tooling',
+     *   url: 'https://myapp.com',
+     *   offers: { price: 29, priceCurrency: 'USD', availability: 'InStock' }, // raw data, not SchemaBuilder.offer(...)
+     * })
+     * ```
+     */
     static softwareApplication(data: SoftwareApplicationSchemaData): SchemaObject {
         const schema: SchemaObject = {
             '@context': 'https://schema.org',
