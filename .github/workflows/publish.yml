@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — runs the full pipeline (checkout, install, test, build, npm publish --dry-run) without actually publishing'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -35,4 +41,10 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish --registry https://registry.npmjs.org/
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "::notice::Dry run requested via workflow_dispatch — verifying the publish path without actually publishing."
+            npm publish --registry https://registry.npmjs.org/ --dry-run
+          else
+            npm publish --registry https://registry.npmjs.org/
+          fi

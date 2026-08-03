@@ -92,7 +92,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
     "ready-to-publish": "npm run check && echo '✅ All checks passed! Bump the version, update CHANGELOG.md, commit, then git tag vX.Y.Z && git push origin vX.Y.Z to trigger the publish workflow.'",
-    "prepare": "husky install",
+    "prepare": "node -e \"process.env.CI || require('child_process').execSync('husky install', { stdio: 'inherit' })\"",
     "prepublishOnly": "npm run build && npm run test",
     "publish:npm": "npm run check && npm publish --registry https://registry.npmjs.org/"
   },

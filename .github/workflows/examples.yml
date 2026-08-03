@@ -31,6 +31,8 @@ jobs:
   build-package:
     name: Build ai-visibility tarball
     runs-on: ubuntu-latest
+    outputs:
+      tarball_filename: ${{ steps.pack.outputs.tarball_filename }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,11 +42,28 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Pack tarball
-        run: npm pack --pack-destination /tmp/tarball
+        id: pack
+        run: |
+          # npm pack does NOT create --pack-destination if it doesn't exist —
+          # it fails with ENOENT instead. This is exactly what broke the first
+          # run of this workflow.
+          mkdir -p /tmp/tarball
+
+          # --silent suppresses npm's lifecycle banners (e.g. the `prepare`
+          # script header, printed regardless of what that script does) from
+          # stdout, which would otherwise corrupt the --json output below.
+          # --json gives us the real filename npm produced, rather than
+          # assuming/constructing one from package name + version — a format
+          # change (npm's tarball naming, or a scoped-name reintroduction)
+          # shouldn't be able to silently break every downstream job's glob.
+          PACK_JSON=$(npm pack --pack-destination /tmp/tarball --json --silent)
+          FILENAME=$(node -e "console.log(JSON.parse(process.argv[1])[0].filename)" "$PACK_JSON")
+          test -f "/tmp/tarball/$FILENAME" || (echo "npm pack reported filename '$FILENAME' but it doesn't exist at /tmp/tarball/" && exit 1)
+          echo "tarball_filename=$FILENAME" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: ai-visibility-tarball
-          path: /tmp/tarball/*.tgz
+          path: /tmp/tarball/${{ steps.pack.outputs.tarball_filename }}
           retention-days: 1
 
   # ---- Self-contained examples (already have their own package.json) ----
@@ -79,7 +98,7 @@ jobs:
         # outright (ETARGET, exit 1) before ever reaching a tarball fix-up
         # step — rewriting the dependency first means there's only one
         # install, and it always resolves.
-        run: npm pkg set dependencies.ai-visibility="file:$(ls /tmp/tarball/*.tgz)"
+        run: npm pkg set dependencies.ai-visibility="file:/tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}"
       - name: Install dependencies
         working-directory: examples/${{ matrix.dir }}
         run: npm install
@@ -130,7 +149,7 @@ jobs:
         working-directory: nuxt-scaffold
         run: |
           npm install
-          npm install /tmp/tarball/*.tgz
+          npm install /tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}
       - name: Build
         working-directory: nuxt-scaffold
         run: npm run build
@@ -181,7 +200,7 @@ jobs:
         working-directory: rr-scaffold
         run: |
           npm install
-          npm install /tmp/tarball/*.tgz
+          npm install /tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}
       - name: Build
         working-directory: rr-scaffold
         # NODE_ENV=production is required for both build and start — without
