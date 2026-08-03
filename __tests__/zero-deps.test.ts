@@ -20,7 +20,14 @@ const SRC_ROOT = path.resolve(__dirname, '../src')
 // Deliberately does NOT match `import(...)` call expressions.
 // Captures whether the import is type-only (`import type` / `export type`),
 // since those are erased at compile time and carry no runtime dependency.
-const STATIC_IMPORT_RE = /^\s*(?:import|export)\s+(type\s+)?(?:[^'";]*\bfrom\s+)?['"]([^'"]+)['"]/gm
+//
+// The middle clause is deliberately narrow (a single `{...}` group, `* as x`,
+// or a bare identifier) rather than a generic "any characters" wildcard —
+// a loose `[^'";]*` here will happily skip past interface/type bodies that
+// contain no semicolon and latch onto the next unrelated quoted string
+// anywhere later in the file (e.g. inside a JSDoc @example). Requiring
+// `from` immediately after a bounded clause avoids that false match.
+const STATIC_IMPORT_RE = /^\s*(?:import|export)\s+(type\s+)?(?:\*\s+as\s+\w+|\{[^{}]*\}|\w+)?\s*from\s+['"]([^'"]+)['"]/gm
 
 function collectStaticValueImportSpecifiers(filePath: string): string[] {
     const content = fs.readFileSync(filePath, 'utf8')

@@ -135,3 +135,50 @@ export class AIBotDetector {
         ]
     }
 }
+
+// ---- detectAndOptimize ----
+
+export interface DetectAndOptimizeOptions extends AIOptimizationOptions {
+    additionalBots?: string[]
+    ignoreBots?: string[]
+}
+
+export interface DetectAndOptimizeResult {
+    isBot: boolean
+    botName: string | null
+    html: string
+}
+
+/**
+ * detectAndOptimize
+ *
+ * Framework-agnostic: HTML string + User-Agent string in, `{ isBot, botName, html }`
+ * out. No request/response objects, works in any runtime — plain Node, Nuxt/Nitro,
+ * Cloudflare Workers, Deno, anywhere. Composes AIBotDetector + HTMLOptimizer above,
+ * so it carries the same zero-dependency guarantee as the rest of this module.
+ *
+ * @example
+ * ```ts
+ * import { detectAndOptimize } from 'ai-visibility/detector'
+ *
+ * const { isBot, botName, html } = detectAndOptimize(rawHtml, userAgent)
+ * ```
+ */
+export function detectAndOptimize(
+    html: string,
+    userAgent: string,
+    options: DetectAndOptimizeOptions = {}
+): DetectAndOptimizeResult {
+    const detector = new AIBotDetector({
+        additionalBots: options.additionalBots,
+        ignoreBots: options.ignoreBots,
+    })
+    const bot = detector.detect(userAgent)
+
+    if (!bot) {
+        return { isBot: false, botName: null, html }
+    }
+
+    const optimizer = new HTMLOptimizer(options)
+    return { isBot: true, botName: bot.name, html: optimizer.optimize(html) }
+}

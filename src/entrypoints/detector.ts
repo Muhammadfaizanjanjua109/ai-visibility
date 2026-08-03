@@ -4,6 +4,7 @@
 // Safe for Next.js Edge Middleware, Cloudflare Workers, Deno.
 // ============================================================
 
-export { AIBotDetector, HTMLOptimizer } from '../middleware/detector'
+export { AIBotDetector, HTMLOptimizer, detectAndOptimize } from '../middleware/detector'
+export type { DetectAndOptimizeOptions, DetectAndOptimizeResult } from '../middleware/detector'
 export { AI_CRAWLERS, detectBot } from '../data/crawlers'
 export type { BotInfo, AIMiddlewareConfig, AIOptimizationOptions } from '../types'

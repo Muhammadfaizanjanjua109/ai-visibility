@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.1] - 2026-08-03
+
+### Fixed
+
+- **`detectAndOptimize()` was unusable outside a Next.js project.** It was documented as framework-agnostic ("no request/response objects, works in any runtime") but lived exclusively in `ai-visibility/next`, whose module scope statically imports `next/server` — so merely importing `detectAndOptimize` from a Nuxt, Vue, or plain Node project crashed with `Cannot find module 'next/server'` unless `next` happened to be installed. Moved `detectAndOptimize` into the zero-dependency detector module; it's now exported from `ai-visibility/detector` (its real home) and still re-exported from `ai-visibility/next` for convenience/back-compat. No API change for existing `ai-visibility/next` imports. Found while verifying a Nuxt integration recipe (0.3.2).
+
 ## [0.3.0] - 2026-08-01
 
 ### Fixed

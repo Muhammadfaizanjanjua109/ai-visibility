@@ -7,8 +7,14 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { AIBotDetector, HTMLOptimizer } from '../middleware/detector'
-import type { AIOptimizationOptions, BotInfo } from '../types'
+import { AIBotDetector } from '../middleware/detector'
+import type { BotInfo } from '../types'
+
+// detectAndOptimize is framework-agnostic and carries no dependency on `next` —
+// it lives in the zero-dep detector module (also reachable from ai-visibility/detector)
+// and is re-exported here for convenience/discoverability from the Next.js subpath.
+export { detectAndOptimize } from '../middleware/detector'
+export type { DetectAndOptimizeOptions, DetectAndOptimizeResult } from '../middleware/detector'
 
 // ---- createNextMiddleware ----
 
@@ -75,53 +81,3 @@ export function createNextMiddleware(options: NextMiddlewareOptions = {}) {
     }
 }
 
-// ---- detectAndOptimize ----
-
-export interface DetectAndOptimizeOptions extends AIOptimizationOptions {
-    additionalBots?: string[]
-    ignoreBots?: string[]
-}
-
-export interface DetectAndOptimizeResult {
-    isBot: boolean
-    botName: string | null
-    html: string
-}
-
-/**
- * detectAndOptimize
- *
- * Framework-agnostic: HTML string + User-Agent string in, `{ isBot, botName, html }`
- * out. No request/response objects, works in any runtime. Built on the same
- * zero-dependency detector + optimizer as `ai-visibility/detector`.
- *
- * @example
- * ```ts
- * // app/blog/[slug]/route.ts
- * import { detectAndOptimize } from 'ai-visibility/next'
- *
- * export async function GET(req: Request) {
- *   const html = await renderPage()
- *   const { html: out } = detectAndOptimize(html, req.headers.get('user-agent') ?? '')
- *   return new Response(out, { headers: { 'content-type': 'text/html' } })
- * }
- * ```
- */
-export function detectAndOptimize(
-    html: string,
-    userAgent: string,
-    options: DetectAndOptimizeOptions = {}
-): DetectAndOptimizeResult {
-    const detector = new AIBotDetector({
-        additionalBots: options.additionalBots,
-        ignoreBots: options.ignoreBots,
-    })
-    const bot = detector.detect(userAgent)
-
-    if (!bot) {
-        return { isBot: false, botName: null, html }
-    }
-
-    const optimizer = new HTMLOptimizer(options)
-    return { isBot: true, botName: bot.name, html: optimizer.optimize(html) }
-}
