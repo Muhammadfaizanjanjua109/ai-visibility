@@ -20,20 +20,26 @@ This example shows how to:
 ### 1. Install the package
 
 ```bash
-npm install @Muhammadfaizanjanjua109/ai-visibility
+npm install ai-visibility
 # or
-pnpm add @Muhammadfaizanjanjua109/ai-visibility
+pnpm add ai-visibility
 ```
 
-### 2. Create middleware
+### 2. Create the proxy (middleware)
 
-Create `src/middleware.ts`:
+`createAIMiddleware` from the root barrel is Express-shaped — `(req, res, next)` — and does not work as Next.js middleware; `ai-visibility/next`'s `createNextMiddleware` is the one built for this (`(req: NextRequest) => NextResponse`).
+
+Create `src/proxy.ts` (Next.js 16+ — this file was called `middleware.ts` with a named `middleware` export before Next.js 16; `middleware.ts` still works today but is deprecated):
 
 ```typescript
-import { createAIMiddleware } from '@Muhammadfaizanjanjua109/ai-visibility'
+import { createNextMiddleware } from 'ai-visibility/next'
 
-export const middleware = createAIMiddleware({
-  verbose: process.env.NODE_ENV === 'development'
+export default createNextMiddleware({
+  onDetect: (bot) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`${bot.name} (${bot.company}) detected`)
+    }
+  },
 })
 
 export const config = {
@@ -41,18 +47,18 @@ export const config = {
 }
 ```
 
-This middleware:
-- Detects AI crawlers (GPTBot, ClaudeBot, etc.)
-- Attaches `request.headers.get('user-agent')` detection info
-- Is applied to all routes
+This proxy/middleware:
+- Detects AI crawlers (GPTBot, ClaudeBot, etc.) via a `x-ai-crawler` response header
+- Reads `request.headers.get('user-agent')` to do the detection
+- Is applied to all routes matched by `config.matcher`
 
 ### 3. Add schema markup
 
 Create `src/components/SchemaMarkup.tsx`:
 
 ```typescript
-import { SchemaBuilder } from '@Muhammadfaizanjanjua109/ai-visibility'
-import type { ProductSchemaData } from '@Muhammadfaizanjanjua109/ai-visibility'
+import { SchemaBuilder } from 'ai-visibility/schema'
+import type { ProductSchemaData } from 'ai-visibility/schema'
 
 interface SchemaMarkupProps {
   type: 'product' | 'article' | 'faq'
@@ -91,7 +97,7 @@ Example: `src/app/pricing/page.tsx`
 
 ```typescript
 import { SchemaMarkup } from '@/components/SchemaMarkup'
-import type { ProductSchemaData } from '@Muhammadfaizanjanjua109/ai-visibility'
+import type { ProductSchemaData } from 'ai-visibility/schema'
 
 const pricingPlans: ProductSchemaData[] = [
   {
@@ -143,7 +149,7 @@ import path from 'path'
 import {
   RobotsGenerator,
   LLMSTextGenerator
-} from '@Muhammadfaizanjanjua109/ai-visibility'
+} from 'ai-visibility/generators'
 
 const PUBLIC_DIR = path.join(process.cwd(), 'public')
 
@@ -199,7 +205,7 @@ Update `package.json`:
 Create `src/lib/logger.ts`:
 
 ```typescript
-import { AIVisitorLogger } from '@Muhammadfaizanjanjua109/ai-visibility'
+import { AIVisitorLogger } from 'ai-visibility/express'
 
 // Singleton instance
 let logger: AIVisitorLogger | null = null
@@ -265,7 +271,7 @@ your-nextjs-app/
 │   │   └── SchemaMarkup.tsx
 │   ├── lib/
 │   │   └── logger.ts
-│   └── middleware.ts
+│   └── proxy.ts            (middleware.ts on Next.js < 16)
 ├── scripts/
 │   └── generate-ai-files.ts
 └── package.json
@@ -281,8 +287,11 @@ your-nextjs-app/
 // src/app/products/[id]/page.tsx
 import { SchemaMarkup } from '@/components/SchemaMarkup'
 
-export default async function ProductPage({ params }) {
-  const product = await getProduct(params.id)
+// `params` is a Promise as of Next.js 15 — accessing params.id directly
+// without awaiting it first throws/warns.
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const product = await getProduct(id)
 
   return (
     <>
@@ -293,7 +302,7 @@ export default async function ProductPage({ params }) {
         currency: 'USD',
         availability: 'InStock',
         image: product.imageUrl,
-        url: `https://yoursite.com/products/${params.id}`
+        url: `https://yoursite.com/products/${id}`
       }} />
       <h1>{product.name}</h1>
       <p>{product.description}</p>
@@ -309,8 +318,9 @@ export default async function ProductPage({ params }) {
 // src/app/blog/[slug]/page.tsx
 import { SchemaMarkup } from '@/components/SchemaMarkup'
 
-export default async function BlogPost({ params }) {
-  const post = await getPost(params.slug)
+export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const post = await getPost(slug)
 
   return (
     <>
@@ -321,7 +331,7 @@ export default async function BlogPost({ params }) {
         publisher: 'Your Site Name',
         publishedDate: post.publishedAt,
         modifiedDate: post.updatedAt,
-        url: `https://yoursite.com/blog/${params.slug}`,
+        url: `https://yoursite.com/blog/${slug}`,
         image: post.coverImage,
         keywords: post.tags
       }} />
@@ -367,7 +377,7 @@ export default function FAQPage() {
 
 ```typescript
 // src/app/layout.tsx
-import { SchemaBuilder } from '@Muhammadfaizanjanjua109/ai-visibility'
+import { SchemaBuilder } from 'ai-visibility/schema'
 
 export default function RootLayout({ children }) {
   const orgSchema = SchemaBuilder.organization({
@@ -502,8 +512,10 @@ VOLUME ["/app/logs"]
 
 1. **Disable verbose logging in production:**
 ```typescript
-// middleware.ts
-verbose: process.env.NODE_ENV === 'development'
+// proxy.ts
+onDetect: (bot) => {
+  if (process.env.NODE_ENV === 'development') console.log(`${bot.name} detected`)
+}
 ```
 
 2. **Cache page analysis results:**

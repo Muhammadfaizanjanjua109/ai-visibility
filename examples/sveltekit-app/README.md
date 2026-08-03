@@ -20,9 +20,9 @@ This example shows how to:
 ### 1. Install the package
 
 ```bash
-npm install @Muhammadfaizanjunjua109/ai-visibility
+npm install ai-visibility
 # or
-pnpm add @Muhammadfaizanjunjua109/ai-visibility
+pnpm add ai-visibility
 ```
 
 ### 2. Create server hooks
@@ -30,7 +30,7 @@ pnpm add @Muhammadfaizanjunjua109/ai-visibility
 Create `src/hooks.server.ts`:
 
 ```typescript
-import { AIBotDetector } from '@Muhammadfaizanjunjua109/ai-visibility'
+import { AIBotDetector } from 'ai-visibility'
 import type { Handle } from '@sveltejs/kit'
 
 const detector = new AIBotDetector()
@@ -53,12 +53,12 @@ Create `src/lib/Schema.svelte`:
 
 ```svelte
 <script lang="ts">
-  import { SchemaBuilder } from '@Muhammadfaizanjunjua109/ai-visibility'
+  import { SchemaBuilder } from 'ai-visibility'
   import type {
     ProductSchemaData,
     ArticleSchemaData,
     FAQItem
-  } from '@Muhammadfaizanjunjua109/ai-visibility'
+  } from 'ai-visibility'
 
   export let type: 'product' | 'article' | 'faq' | 'organization'
   export let data: any
@@ -95,7 +95,7 @@ Example: `src/routes/pricing/+page.svelte`
 ```svelte
 <script lang="ts">
   import Schema from '$lib/Schema.svelte'
-  import type { ProductSchemaData } from '@Muhammadfaizanjunjua109/ai-visibility'
+  import type { ProductSchemaData } from 'ai-visibility'
 
   const plans: ProductSchemaData[] = [
     {
@@ -148,7 +148,7 @@ import path from 'path'
 import {
   RobotsGenerator,
   LLMSTextGenerator
-} from '@Muhammadfaizanjunjua109/ai-visibility'
+} from 'ai-visibility'
 
 const PUBLIC_DIR = path.join(process.cwd(), 'static')
 
@@ -204,7 +204,7 @@ Update `package.json`:
 Create `src/lib/server/logger.ts`:
 
 ```typescript
-import { AIVisitorLogger } from '@Muhammadfaizanjunjua109/ai-visibility'
+import { AIVisitorLogger } from 'ai-visibility'
 
 let logger: AIVisitorLogger | null = null
 
@@ -375,7 +375,7 @@ export async function load({ params }) {
 ```svelte
 <script lang="ts">
   import Schema from '$lib/Schema.svelte'
-  import type { FAQItem } from '@Muhammadfaizanjunjua109/ai-visibility'
+  import type { FAQItem } from 'ai-visibility'
 
   const faqs: FAQItem[] = [
     { q: 'What is your product?', a: 'Our product helps...' },
@@ -541,7 +541,7 @@ Add types to `src/app.d.ts`:
 declare namespace App {
   interface Locals {
     isAIBot: boolean
-    aiBotInfo?: import('@Muhammadfaizanjunjua109/ai-visibility').BotInfo
+    aiBotInfo?: import('ai-visibility').BotInfo
   }
 }
 ```

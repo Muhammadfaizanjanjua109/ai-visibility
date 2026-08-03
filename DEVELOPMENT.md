@@ -8,7 +8,7 @@ Local development setup and workflow for `ai-visibility`.
 
 ```bash
 # Clone and install
-git clone https://github.com/Muhammadfaizanjunjua109/ai-visibility
+git clone https://github.com/Muhammadfaizanjanjua109/ai-visibility
 cd ai-visibility
 npm install
 

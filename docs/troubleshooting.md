@@ -6,27 +6,22 @@ Common issues and solutions when using `ai-visibility`.
 
 ## Installation & Setup
 
-### "Cannot find module '@Muhammadfaizanjanjua109/ai-visibility'"
+### "Cannot find module 'ai-visibility'"
 
 **Problem:** Package installation failed or not installed at all.
 
 **Solutions:**
 ```bash
-# Make sure you're installing the scoped package
-npm install @Muhammadfaizanjanjua109/ai-visibility
+# The package is unscoped — install it as `ai-visibility`, not
+# `@yourusername/ai-visibility` or any other scoped name.
+npm install ai-visibility
 
 # Clear npm cache if installation seems corrupted
 npm cache clean --force
-npm install @Muhammadfaizanjanjua109/ai-visibility
+npm install ai-visibility
 
 # Verify installation
-npm list @Muhammadfaizanjanjua109/ai-visibility
-```
-
-If using GitHub Packages, configure `.npmrc`:
-```bash
-# Add this to ~/.npmrc or your project's .npmrc
-@Muhammadfaizanjanjua109:registry=https://npm.pkg.github.com
+npm list ai-visibility
 ```
 
 ---
@@ -42,7 +37,7 @@ npx ai-visibility init
 npx ai-visibility analyze --file ./pages/index.html
 
 # Or install globally
-npm install -g @Muhammadfaizanjanjua109/ai-visibility
+npm install -g ai-visibility
 ai-visibility init
 
 # Or use local node_modules
@@ -377,7 +372,7 @@ logger.clearLogs()
 
 1. **Ensure package is installed:**
 ```bash
-npm install @Muhammadfaizanjanjua109/ai-visibility
+npm install ai-visibility
 ```
 
 2. **Import the package somewhere in your app:**
