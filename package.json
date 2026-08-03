@@ -81,7 +81,7 @@
     "ai-visibility": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsup && npm run build:shebang",
+    "build": "tsup && npm run build:shebang && node scripts/generate-crawlers-json.js",
     "build:shebang": "node -e \"const fs = require('fs'); const path = require('path'); const cliPath = path.join('dist', 'cli', 'index.js'); let content = fs.readFileSync(cliPath, 'utf8'); if (!content.startsWith('#!/usr/bin/env node')) { content = '#!/usr/bin/env node\\n' + content.replace(/^#!.*\\n/, ''); fs.writeFileSync(cliPath, content); }\"",
     "dev": "tsup --watch",
     "test": "vitest run",
@@ -91,12 +91,10 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "ready-to-publish": "npm run check && echo '✅ All checks passed! Safe to publish.'",
+    "ready-to-publish": "npm run check && echo '✅ All checks passed! Bump the version, update CHANGELOG.md, commit, then git tag vX.Y.Z && git push origin vX.Y.Z to trigger the publish workflow.'",
     "prepare": "husky install",
     "prepublishOnly": "npm run build && npm run test",
-    "publish:npm": "npm run check && npm publish --registry https://registry.npmjs.org/",
-    "publish:github": "npm run check && npm publish --registry https://npm.pkg.github.com/",
-    "release": "npm run ready-to-publish && npm run publish:npm && npm run publish:github && echo '✅ Published to npm and GitHub Packages!'"
+    "publish:npm": "npm run check && npm publish --registry https://registry.npmjs.org/"
   },
   "keywords": [
     "ai-seo",

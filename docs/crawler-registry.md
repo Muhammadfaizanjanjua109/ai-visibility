@@ -1,9 +1,10 @@
 # Crawler Registry: Verification & Multi-Surface Sharing
 
 `src/data/crawlers.ts` is the single source of truth for every AI crawler
-this package can detect. This doc covers how it's verified, and — since
-this same list now needs to exist in more than one codebase — whether it
-should be shared or kept duplicated.
+this package can detect. This doc covers how it's verified, and how it's
+shared with the other codebases that need the same list (the CrawlPod
+WordPress plugin today, a Shopify app in the future) via the published
+`dist/crawlers.json`.
 
 ## How entries are verified
 
@@ -27,10 +28,43 @@ re-checked yet — an honest gap, not a claim that they're wrong.
 every entry that isn't `verified: true`, so consumers can decide for
 themselves how much to trust a match against one of those tokens.
 
-## Re-verification checklist
+## Quarterly re-verification checklist
 
-Run this against each vendor's own docs (not secondary sources) before
-trusting an entry that's more than ~2 quarters old:
+Budget ~20 minutes for this, not a re-investigation — every entry already
+records where it came from and when it was last checked. That's the entire
+point of the `sourceUrl`/`lastChecked` fields: this should stay cheap
+indefinitely, not get more expensive as the list grows.
+
+**When:** every quarter, or before relying on this list for a release
+you actually care about, whichever comes first.
+
+**Steps:**
+
+1. For each vendor below, open `sourceUrl` fresh (don't trust your memory
+   of what it said last time) and check:
+   - **Is the token still listed?** Vendors do deprecate/rename tokens —
+     that's exactly how `Claude-Web` ended up stale in this list before.
+   - **Has a new crawler been added** that this package doesn't track yet?
+   - **Is the `purpose` classification still accurate** (training vs.
+     search-surfacing vs. user-triggered fetch)?
+2. Update `lastChecked` (ISO date, `YYYY-MM-DD`) on every entry you
+   actually re-confirmed — not the ones you skipped.
+3. If a token changed or was added/removed, edit `src/data/crawlers.ts`
+   directly (never edit `dist/crawlers.json` by hand — it's generated,
+   see below) and add a test in `__tests__/crawlers.test.ts` for any new
+   entry, following the existing pattern (realistic UA + a near-miss that
+   must not match).
+4. Run `npm run build` — this regenerates `dist/crawlers.json`
+   automatically from the updated `src/data/crawlers.ts`, and bumps
+   `generatedAt`/`packageVersion` to match. Commit both.
+5. **Propagate to downstream surfaces**: the CrawlPod WordPress plugin
+   (and, once it exists, the Shopify app) each re-fetch and regenerate
+   their native copy from the newly-published `crawlers.json` (see
+   "Consuming `crawlers.json` from another surface" below) as part of
+   their own next release — this repo publishing an update doesn't push
+   anything anywhere automatically.
+
+**Vendor doc URLs to check:**
 
 1. OpenAI — https://developers.openai.com/api/docs/bots (GPTBot, ChatGPT-User, OAI-SearchBot; also documents OAI-AdsBot, not currently tracked here — ad-safety verification, not content citation, so it's out of scope for this package's purpose)
 2. Anthropic — https://support.claude.com/en/articles/8896518 (ClaudeBot, Claude-User, Claude-SearchBot)
@@ -41,16 +75,16 @@ trusting an entry that's more than ~2 quarters old:
 7. Amazon — https://developer.amazon.com/amazonbot (Amazonbot, Amzn-SearchBot, Amzn-User)
 8. Meta — https://developers.facebook.com/docs/sharing/webmasters/crawler (meta-externalagent)
 9. Apple — https://support.apple.com/en-us/119829 (Applebot-Extended)
-10. ByteDance — no official documentation exists; re-check whether that's changed before flipping Bytespider to `verified: true`
+10. ByteDance — no official documentation exists; re-check whether that's changed before flipping Bytespider's `verified` to `true`
 
 For each: confirm the token is still current, confirm it's still a stable
 substring (not a version-pinned string — vendor UAs always embed a version
 number, e.g. `GPTBot/1.4`; that number is expected to keep changing and the
 match pattern must never include it), and update `lastChecked`.
 
-## Should the registry be shared across npm/WordPress/Shopify?
+## Sharing the registry across npm/WordPress/Shopify
 
-**Not as a code dependency. As published JSON, yes — worth doing, not urgent.**
+**Not as a code dependency. As published JSON.**
 
 This list already needs to exist in the CrawlPod WordPress plugin, and will
 need to exist a third time in a Shopify app. It's already drifted once
@@ -85,15 +119,66 @@ need to exist a third time in a Shopify app. It's already drifted once
   that already produced one drift incident, with a third consumer about
   to make it more likely, not less.
 
-**Recommendation:** add a small build step here that emits `dist/crawlers.json`
-(same data as `AI_CRAWLERS`, including the `verified`/`sourceUrl`/`lastChecked`
-fields) alongside the existing JS/type outputs. Each other surface adds a
-one-line sync step to its own release process (fetch the pinned-version
-JSON, regenerate its native array) instead of hand-maintaining a parallel
-list. This is additive to what exists today — no consumer has to change
-anything until they choose to wire up the sync step — and it means the next
-audit only has to happen in one place for all three surfaces to eventually
-pick it up, rather than three times over.
+**Implemented.** `npm run build` now runs `scripts/generate-crawlers-json.js`
+after `tsup`, which `require()`s the just-built `dist/detector.js` (never
+`src/data/crawlers.ts` directly, and never hand-typed — if the TS registry
+and the JSON could drift, they would) and writes `dist/crawlers.json`.
+It's covered by the existing `files` entry for `dist` in `package.json`, so
+it publishes automatically and becomes fetchable, unauthenticated, from a
+CDN mirror of the npm package the moment a new version goes out — no
+extra publish step, no new package.
 
-Not implemented as part of this change — this is the assessment the task
-asked for, not the build step itself.
+### `dist/crawlers.json` shape
+
+```json
+{
+  "schemaVersion": 1,
+  "packageVersion": "0.4.0",
+  "generatedAt": "2026-08-03T16:10:05.891Z",
+  "source": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/src/data/crawlers.ts",
+  "docs": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/docs/crawler-registry.md",
+  "crawlers": [
+    {
+      "name": "GPTBot",
+      "company": "OpenAI",
+      "userAgentPattern": "gptbot",
+      "purpose": "training",
+      "verified": true,
+      "sourceUrl": "https://developers.openai.com/api/docs/bots",
+      "lastChecked": "2026-08-03"
+    }
+    // ...one entry per crawler, same shape as BotInfo
+  ]
+}
+```
+
+`schemaVersion` is a plain integer, independent of `packageVersion` — bump
+it only if the *shape* of `crawlers[]` entries changes in a way a consumer
+would need to handle explicitly (a field renamed or removed). Adding new
+crawler entries, or new *optional* fields to existing ones, isn't a
+schema-version bump.
+
+### Consuming `crawlers.json` from another surface
+
+**Fetch at build/release time. Never at runtime.** A WordPress plugin or
+Shopify app that fetched this URL on every page load would take on a live
+dependency on a third-party CDN being up, for data that changes maybe four
+times a year. Vendor a static copy instead:
+
+```bash
+# Run this as part of the *other* surface's own release process, not this repo's.
+curl -sL https://cdn.jsdelivr.net/npm/ai-visibility@latest/dist/crawlers.json -o crawlers.json
+# (or pin an exact version instead of @latest once you've reviewed it:
+#  .../npm/ai-visibility@0.4.0/dist/crawlers.json)
+```
+
+Then transform `crawlers.json` into whatever native structure that surface
+needs (a PHP array, a Liquid data file, etc.) and commit the *generated*
+result — check `schemaVersion` first and fail loudly if it's higher than
+the version your transform script was written against, rather than
+silently misreading a changed shape.
+
+Pin an exact version rather than `@latest` for anything beyond a quick
+check — `@latest` is fine for eyeballing the current data, but a downstream
+build script should fetch a version it's reviewed, the same way you'd pin
+any other dependency.
