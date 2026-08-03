@@ -8,6 +8,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
+**📖 Full documentation: [crawlpod.com/docs](https://crawlpod.com/docs)** — API reference, per-framework recipes, and long-form examples. This README covers what the package does, install, a working quickstart, and everything it exports; the site has the depth.
+
 ---
 
 ## Why?
@@ -26,52 +28,59 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 | Monitor AI activity visually | Free Dashboard | Real-time analytics & insights |
 | Get started quickly | CLI tool | 1 command to set up everything |
 
----
-
-## Quick Start
-
-```bash
-npm install ai-visibility
-npx ai-visibility init
-```
-
-That's it. You now have:
-- ✅ `public/robots.txt` — AI crawlers allowed
-- ✅ `public/llms.txt` — Content index for LLMs
-- ✅ Middleware instructions for your framework
+Works with **Node.js**, **Next.js** (App Router), **Express**, and — for what's actually possible without a server — **Nuxt, Vue, and React** too. See [Framework Support](#framework-support) below.
 
 ---
 
-## Installation
+## Install
 
 ```bash
 npm install ai-visibility
-# or
-pnpm add ai-visibility
-# or
-yarn add ai-visibility
+# or: pnpm add ai-visibility / yarn add ai-visibility
 ```
 
 **Requirements:** Node.js 18+
+
+```bash
+# Optional: scaffold robots.txt, llms.txt, and framework-specific middleware instructions
+npx ai-visibility init
+```
+
+---
+
+## Quickstart
+
+A complete, working example — Next.js detecting AI crawlers and marking the response, copy-pasteable into `proxy.ts` (or `middleware.ts` on Next.js < 16):
+
+```typescript
+// proxy.ts
+import { createNextMiddleware } from 'ai-visibility/next'
+
+export default createNextMiddleware({
+  onDetect: (bot) => console.log(`${bot.name} (${bot.company}) detected`),
+})
+
+export const config = { matcher: ['/:path*'] }
+```
+
+That's it — GPTBot, ClaudeBot, PerplexityBot, and 18 other known AI crawlers now get an `x-ai-crawler` response header, and `onDetect` fires (safely, even if it's `async`) whenever one hits your site. For Express, or for a framework-agnostic version with no request/response objects at all, see [Package Exports](#package-exports) below and the full recipes at [crawlpod.com/docs/recipes](https://crawlpod.com/docs/recipes).
 
 ---
 
 ## Package Exports
 
-As of **0.3.0**, `ai-visibility` ships as subpaths in addition to the root barrel, so you only bundle what you actually use. This matters most for **Next.js Edge Middleware, Cloudflare Workers, and Deno** — the detector, schema builder, and generators have **zero runtime dependencies** and run anywhere.
+`ai-visibility` ships as subpaths in addition to the root barrel, so you only bundle what you actually use. This matters most for **Next.js Edge Middleware, Cloudflare Workers, and Deno** — the detector, schema builder, and generators have **zero runtime dependencies** and run anywhere.
 
 | Import | Contains | Runtime deps | Edge-safe |
 |---|---|---|:---:|
-| `ai-visibility` | Everything (barrel) — unchanged from 0.2.x | all | ❌ |
+| `ai-visibility` | Everything (barrel) | all | ❌ |
 | `ai-visibility/detector` | `AIBotDetector`, `HTMLOptimizer`, `detectAndOptimize()`, bot registry | **none** | ✅ |
 | `ai-visibility/schema` | `SchemaBuilder` | **none**¹ | ✅¹ |
 | `ai-visibility/generators` | `RobotsGenerator`, `LLMSTextGenerator` | **none** | ✅ |
 | `ai-visibility/express` | `createAIMiddleware`, `optimizeResponseForAI`, `AIVisitorLogger` | `express` (optional peer) | ❌ Node only |
 | `ai-visibility/next` | `createNextMiddleware` (+ `detectAndOptimize`, re-exported for convenience) | `next` (optional peer) | ✅ |
 
-¹ Every `SchemaBuilder` method is dependency-free except `fromHTML()`, which lazily loads `cheerio` on first call (dynamic `import()`, not a static one) — so importing `ai-visibility/schema` never pulls it in unless you actually call `fromHTML()`.
-
-The root `ai-visibility` import still re-exports everything, so **0.2.x code keeps working with no changes**. Subpaths are opt-in for people who want a smaller, edge-safe bundle.
+¹ Every `SchemaBuilder` method is dependency-free except `fromHTML()`, which lazily loads `cheerio` on first call — importing `ai-visibility/schema` never pulls it in unless you actually call `fromHTML()`.
 
 ```typescript
 // Edge-safe, zero dependencies — works in any runtime, any framework:
@@ -88,375 +97,65 @@ import { createNextMiddleware } from 'ai-visibility/next'
 
 ---
 
-## Features
+## Framework Support
 
-### 1. Next.js Middleware (Proxy)
-
-Detects AI crawlers in App Router `proxy.ts` — edge-safe, no Node built-ins, no `next` hard dependency (it's an optional peer). `onDetect` may be `async`; if it returns a promise, it's registered with the runtime's `waitUntil()` automatically so the work isn't dropped once the response is sent.
-
-```typescript
-// proxy.ts (Next.js 16+ — middleware.ts was renamed to proxy.ts)
-import { createNextMiddleware } from 'ai-visibility/next'
-
-export default createNextMiddleware({
-  // Mark bot requests with a header (default: 'x-ai-crawler')
-  onDetect: async (bot) => {
-    console.log(`${bot.name} (${bot.company}) detected`)
-    // async work here is safely kept alive via event.waitUntil()
-  },
-
-  // Optionally rewrite bot requests to an alternate, AI-optimized route
-  // rewrite: '/ai-landing',
-})
-
-export const config = { matcher: ['/:path*'] }
-```
-
-On Next.js < 16 (or the deprecated-but-still-working path on 16), use `middleware.ts` with a named export instead — same function, just a different file name and export style:
-
-```typescript
-// middleware.ts
-import { createNextMiddleware } from 'ai-visibility/next'
-
-export const middleware = createNextMiddleware({ /* ...same options... */ })
-export const config = { matcher: ['/:path*'] }
-```
-
-For a framework-agnostic version that transforms HTML directly (any runtime, no request/response objects — this is what powers the [Nuxt](./docs/framework-integration.md#nuxt) and other framework recipes below, and doesn't need `next` installed):
-
-```typescript
-import { detectAndOptimize } from 'ai-visibility/detector'
-
-const { isBot, botName, html } = detectAndOptimize(rawHtml, userAgent, {
-  stripJs: true,
-  removeAds: true,
-})
-```
-
----
-
-### 2. Express Middleware
-
-Detects AI crawlers (GPTBot, ClaudeBot, PerplexityBot, etc.) and serves them optimized HTML — no JS, no ads, clean semantic structure.
-
-```typescript
-import express from 'express'
-import { createAIMiddleware, optimizeResponseForAI } from 'ai-visibility/express'
-
-const app = express()
-
-// Step 1: Detect AI bots
-app.use(createAIMiddleware({ verbose: true }))
-
-// Step 2: Optimize HTML responses for AI bots
-app.use(optimizeResponseForAI({
-  stripJs: true,       // Remove <script> tags (keeps JSON-LD)
-  removeAds: true,     // Remove ad elements
-  removeTracking: true // Remove tracking pixels
-}))
-```
-
-**Detected crawlers:** GPTBot, ChatGPT-User, OAI-SearchBot (OpenAI) · ClaudeBot, Claude-User, Claude-SearchBot (Anthropic) · PerplexityBot, Perplexity-User (Perplexity) · Google-Extended, Googlebot (Google) · Bingbot (Microsoft) · CCBot (Common Crawl) · Amazonbot, Amzn-SearchBot, Amzn-User (Amazon) · meta-externalagent (Meta) · Applebot-Extended (Apple) · Bytespider (ByteDance, unverified — no official vendor docs exist) · YouBot, cohere-ai, Diffbot + custom. Every token above (except where noted) is verified against the vendor's own documentation — see the [Crawler Registry Guide](./docs/crawler-registry.md).
-
----
-
-### 3. Config File Generation
-
-#### robots.txt
-
-By default, `RobotsGenerator` disallows nothing beyond what you explicitly pass — it doesn't assume any framework's internal paths. Pass your own `disallow` list if you need one.
-
-```typescript
-import { RobotsGenerator } from 'ai-visibility/generators'
-import fs from 'fs'
-
-// Allow all AI crawlers (recommended)
-fs.writeFileSync('./public/robots.txt', RobotsGenerator.allowAll({
-  sitemapUrl: 'https://mysite.com/sitemap.xml'
-}))
-
-// Or block training bots, allow search bots
-fs.writeFileSync('./public/robots.txt', RobotsGenerator.blockTraining())
-
-// Or full control
-const gen = new RobotsGenerator({
-  allowAI: ['GPTBot', 'ClaudeBot', 'PerplexityBot'],
-  blockAI: ['CCBot'],
-  disallow: ['/admin', '/api'],
-  sitemapUrl: 'https://mysite.com/sitemap.xml',
-})
-fs.writeFileSync('./public/robots.txt', gen.generate())
-```
-
-#### llms.txt (2026 Standard)
-
-```typescript
-import { LLMSTextGenerator } from 'ai-visibility/generators'
-import fs from 'fs'
-
-const gen = new LLMSTextGenerator({
-  siteName: 'MyApp',
-  description: 'The best Node.js framework for AI',
-  baseUrl: 'https://myapp.com',
-  pages: [
-    { url: '/product', title: 'Product', priority: 'high' },
-    { url: '/pricing', title: 'Pricing', summary: 'Plans from $29/month' },
-    { url: '/docs', title: 'Documentation' },
-  ],
-  contact: { email: 'hello@myapp.com', github: 'myapp' }
-})
-
-const content = await gen.generate()
-fs.writeFileSync('./public/llms.txt', content)
-```
-
----
-
-### 4. Schema Builder (JSON-LD)
-
-`SchemaBuilder` covers 11 schema.org types:
-
-| Type | Method | Notes |
+| Framework | Has a server? | What works |
 |---|---|---|
-| FAQPage | `faq()` | |
-| Product | `product()` | |
-| Article | `article()` | |
-| Organization | `organization()` | |
-| Person | `person()` | |
-| WebSite | `website()` | Optional `SearchAction` / sitelinks searchbox |
-| SoftwareApplication | `softwareApplication()` | `offers`/`aggregateRating` take raw `OfferSchemaData`/`AggregateRatingSchemaData` — don't call `offer()`/`aggregateRating()` yourself first |
-| BreadcrumbList | `breadcrumbList()` | Accepts absolute URLs, or relative paths + `baseUrl` |
-| DefinedTerm / DefinedTermSet | `definedTerm()` / `definedTermSet()` | Glossary pages — a strong GEO citation surface |
-| Offer | `offer()` | Nested node (no `@context`) — embed in Product/SoftwareApplication |
-| AggregateRating | `aggregateRating()` | Nested node (no `@context`) |
+| Node.js / Express | Yes | Full integration |
+| Next.js (App Router) | Yes | Full integration — native `proxy.ts`/`middleware.ts` support |
+| Nuxt (Nitro) / React Router (framework mode) / Remix / Astro (server) / TanStack Start | Yes | Full integration via the framework-agnostic exports |
+| Vue SPA / React SPA (Vite, no server) | No | Build-time `robots.txt`/`llms.txt` generation + build-time JSON-LD only |
 
-Plus auto-detection from raw HTML via `fromHTML()`.
+A SPA with no server genuinely can't run this package's middleware or bot
+detection — there's no request to detect a crawler on. See the
+[Framework Integration Guide](./docs/framework-integration.md) for the full
+story on Nuxt, Vue, and React, including runnable examples for each in
+[`examples/`](./examples), and [crawlpod.com/docs/recipes](https://crawlpod.com/docs/recipes) for Next.js and Express.
 
-```typescript
-import { SchemaBuilder } from 'ai-visibility/schema'
+---
 
-// FAQ Schema
-const faqSchema = SchemaBuilder.faq([
-  { q: 'What does your product do?', a: 'It optimizes your site for AI visibility.' },
-  { q: 'How much does it cost?', a: 'Free and open-source.' },
-])
+## What's included
 
-// Product Schema
-const productSchema = SchemaBuilder.product({
-  name: 'MyApp Pro',
-  price: 29,
-  currency: 'USD',
-  features: ['AI optimization', 'Schema generation', 'Crawler monitoring'],
-  author: { name: 'Jane Doe', jobTitle: 'Founder' }
-})
+Every export, one line each — see [crawlpod.com/docs/api-reference](https://crawlpod.com/docs/api-reference) or [docs/api-reference.md](./docs/api-reference.md) for full signatures.
 
-// WebSite + SearchAction
-const websiteSchema = SchemaBuilder.website({
-  name: 'MyApp',
-  url: 'https://myapp.com',
-  searchAction: { urlTemplate: 'https://myapp.com/search?q={search_term_string}' },
-})
+**`ai-visibility/detector`** (zero dependencies, edge-safe):
+- `AIBotDetector` — detects AI crawlers from a User-Agent string
+- `HTMLOptimizer` — strips scripts/ads/tracking pixels from HTML for bot responses
+- `detectAndOptimize()` — the two above combined: HTML + UA string in, `{ isBot, botName, html }` out
+- `AI_CRAWLERS`, `detectBot()`, `getUnverifiedBots()` — the crawler registry itself (see below)
 
-// SoftwareApplication, reusing the Offer builder
-const appSchema = SchemaBuilder.softwareApplication({
-  name: 'MyApp',
-  description: 'AI visibility tooling',
-  url: 'https://myapp.com',
-  offers: { price: 29, priceCurrency: 'USD', availability: 'InStock' },
-  aggregateRating: { ratingValue: 4.8, ratingCount: 120 },
-})
+**`ai-visibility/schema`** (zero dependencies except lazy `fromHTML()`):
+- `SchemaBuilder` — JSON-LD builder covering FAQPage, Product, Article, Organization, Person, WebSite, SoftwareApplication, BreadcrumbList, DefinedTerm/DefinedTermSet, Offer, and AggregateRating, plus `fromHTML()` auto-detection and `toScriptTag()`/`toScriptTagMultiple()` rendering
 
-// Auto-detect from HTML — async: lazily loads `cheerio` on first call
-const schema = await SchemaBuilder.fromHTML(htmlContent)
+**`ai-visibility/generators`** (zero dependencies):
+- `RobotsGenerator` — generates `robots.txt`, explicitly allowing/blocking specific AI crawlers
+- `LLMSTextGenerator` — generates `llms.txt` (the emerging LLM-indexing standard)
 
-// Render as <script> tag (for raw HTML template injection — see JSX note below)
-const tag = SchemaBuilder.toScriptTag(faqSchema)
-// <script type="application/ld+json">...</script>
-```
+**`ai-visibility/express`** (Node only, `express` optional peer):
+- `createAIMiddleware()`, `optimizeResponseForAI()` — detect bots and serve them optimized HTML
+- `AIVisitorLogger` — logs and queries AI crawler visits (`getStats()`, `getLogs()`)
 
-#### Using with React/JSX
+**`ai-visibility/next`** (edge-safe, `next` optional peer):
+- `createNextMiddleware()` — `proxy.ts`/`middleware.ts` helper; `onDetect` may be `async`, safely kept alive via `event.waitUntil()`
 
-`toScriptTag()` / `toScriptTagMultiple()` return a **complete `<script>…</script>` HTML string**, meant for raw-template injection (e.g. an Express view or a plain HTML string you write to a file). That doesn't fit React, where `dangerouslySetInnerHTML` expects the tag's *contents*, not the tag itself.
+**Root barrel only** (also re-exports everything above):
+- `ContentAnalyzer` — scores HTML for AI readability (answer front-loading, fact density, heading structure, E-E-A-T, snippability, schema coverage) with specific fixes
+- `Dashboard`, `createDashboard()` — self-hosted analytics dashboard, no infrastructure or data collection
+- CLI (`npx ai-visibility init | analyze | generate | logs`) — scaffolding and inspection commands
 
-In React/Next.js, use the plain object the builders return instead:
+### Crawler registry
+
+`AI_CRAWLERS` covers 21 crawlers across 13 vendors (OpenAI, Anthropic, Perplexity, Google, Microsoft, Common Crawl, Amazon, Meta, Apple, ByteDance, You.com, Cohere, Diffbot). 17 are verified against the vendor's own documentation (source URL + check date recorded per entry); Bytespider is explicitly flagged `verified: false` since no official ByteDance documentation exists at all; the remaining three predate this audit and are flagged as such via `getUnverifiedBots()`. The same data is published as plain JSON at `dist/crawlers.json` for other tooling to consume at build time. See the [Crawler Registry Guide](./docs/crawler-registry.md) for the verification methodology, the re-verification checklist, and the consumption pattern.
+
+### Using JSON-LD with React/JSX
+
+`toScriptTag()`/`toScriptTagMultiple()` return a complete `<script>…</script>` HTML string for raw-template injection — not what React's `dangerouslySetInnerHTML` expects (the tag's *contents*, not the tag itself). In React/Next.js, use the plain object the builders return instead:
 
 ```tsx
-export default function PricingPage() {
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(SchemaBuilder.product({ name: 'Pro', price: 29 }))
-        }}
-      />
-      <h1>Pricing</h1>
-    </>
-  )
-}
-```
-
----
-
-### 5. Content Analyzer
-
-Score your pages for AI readability and get specific, actionable fixes.
-
-```typescript
-import { ContentAnalyzer } from 'ai-visibility'
-import fs from 'fs'
-
-const analyzer = new ContentAnalyzer()
-const html = fs.readFileSync('./pages/pricing.html', 'utf-8')
-const result = await analyzer.analyze(html)
-
-console.log(`Score: ${result.overallScore}/100`)
-// Score: 85/100
-
-console.log(result.breakdown)
-// {
-//   answerFrontLoading: 95,
-//   factDensity: 70,
-//   headingStructure: 100,
-//   eeatSignals: 75,
-//   snippability: 80,
-//   schemaCoverage: 50
-// }
-
-result.issues.forEach(issue => {
-  console.log(`[${issue.severity}] ${issue.message}`)
-  console.log(`  Fix: ${issue.fix}`)
-})
-```
-
-**What it checks:**
-- **Answer front-loading** — Is the answer in the first 20% of content?
-- **Fact density** — 4-6 verifiable facts per 100 words
-- **Heading structure** — Proper H1 → H2 → H3 hierarchy
-- **E-E-A-T signals** — Author, organization, contact, trust signals
-- **Snippability** — Can each section stand alone?
-- **Schema coverage** — JSON-LD markup present and valid?
-
----
-
-### 6. AI Visitor Logger
-
-Track which AI crawlers visit your site, what they crawl, and how often.
-
-```typescript
-import express from 'express'
-import { AIVisitorLogger } from 'ai-visibility/express'
-
-const app = express()
-const logger = new AIVisitorLogger({ storage: 'both' })
-
-app.use(logger.middleware())
-
-// Query logs programmatically
-const stats = logger.getStats(7) // Last 7 days
-// {
-//   GPTBot: { totalVisits: 12, successRate: 100, lastSeen: '...' },
-//   ClaudeBot: { totalVisits: 8, successRate: 100, lastSeen: '...' }
-// }
-
-const gptLogs = logger.getLogs({ botName: 'GPTBot', days: 7 })
-```
-
----
-
-### 7. Free Tier Dashboard
-
-Monitor AI crawler activity with a beautiful, self-hosted dashboard. No infrastructure costs, no data collection — everything runs locally.
-
-```typescript
-import express from 'express'
-import { AIVisitorLogger, createDashboard } from 'ai-visibility'
-
-const app = express()
-const logger = new AIVisitorLogger({ storage: 'file' })
-
-app.use(logger.middleware())
-
-// Serve the dashboard
-app.get('/admin/ai-visibility', (req, res) => {
-  // Optionally add authentication
-  // if (!req.user?.isAdmin) return res.status(403).send('Unauthorized')
-
-  const stats = logger.getStats(30)      // Last 30 days
-  const logs = logger.getLogs({ days: 30 })
-
-  const dashboard = createDashboard()
-  res.send(dashboard.render(stats, logs))
-})
-```
-
-**Dashboard Features:**
-- 📊 **AI Readiness Score** (0-100) based on crawler activity
-- 🌍 **Real-time Crawler Tracking** — See which AI models (Claude, ChatGPT, Gemini, Perplexity) visited
-- 📄 **Page-level Analytics** — Which content AI models crawl most
-- ⚡ **Performance Metrics** — Response times and success rates
-- 📝 **Activity Log** — Recent crawler visits with details
-- 💾 **Self-hosted** — Zero infrastructure costs, data stays on your server
-- 🎨 **Lightweight** — Vanilla HTML/CSS (45KB), no frameworks
-
-**Framework Support:**
-- [Next.js 13+](./examples/nextjs-dashboard)
-- [Vue 3 / Nuxt 3](./examples/vue-dashboard)
-- [Vanilla Node.js/Express](./examples/vanilla-dashboard)
-
-**Full documentation:** [Dashboard Guide](./DASHBOARD_GUIDE.md)
-
----
-
-## CLI
-
-```bash
-# Initialize project
-npx ai-visibility init
-npx ai-visibility init --site-name "MyApp" --site-url "https://myapp.com"
-npx ai-visibility init --block-training  # Block training bots
-
-# Analyze content
-npx ai-visibility analyze --dir ./pages
-npx ai-visibility analyze --file ./pages/pricing.html
-npx ai-visibility analyze --dir ./pages --min-score 80  # Only show failing pages
-npx ai-visibility analyze --json  # Machine-readable output
-
-# Generate files
-npx ai-visibility generate robots --out ./public/robots.txt
-npx ai-visibility generate llms --site-name "MyApp" --base-url "https://myapp.com"
-npx ai-visibility generate schema --type faq
-npx ai-visibility generate schema --type product --name "MyApp Pro" --price 29
-
-# View crawler logs
-npx ai-visibility logs --summary
-npx ai-visibility logs --crawler GPTBot --days 7
-npx ai-visibility logs --json
-```
-
----
-
-## TypeScript Support
-
-Full type safety out of the box:
-
-```typescript
-import type {
-  AIMiddlewareConfig,
-  AIReadabilityScore,
-  AnalysisIssue,
-  RobotsConfig,
-  LLMSConfig,
-  FAQItem,
-  ProductSchemaData,
-  WebSiteSchemaData,
-  SoftwareApplicationSchemaData,
-  BreadcrumbItem,
-  DefinedTermSchemaData,
-  OfferSchemaData,
-  AggregateRatingSchemaData,
-  CrawlerLog,
-} from 'ai-visibility'
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{ __html: JSON.stringify(SchemaBuilder.product({ name: 'Pro', price: 29 })) }}
+/>
 ```
 
 ---
@@ -480,65 +179,41 @@ import type {
 
 ---
 
-## Upgrading to 0.3.1
-
-- **`detectAndOptimize()` bug fix:** it's now exported from `ai-visibility/detector` (its real, zero-dependency home). Previously it only lived in `ai-visibility/next`, which crashes on import without `next` installed — so the "framework-agnostic" helper only actually worked inside Next.js projects. `ai-visibility/next` still re-exports it, so existing `next` imports are unaffected.
-
-## Upgrading to 0.3.0
-
-- **`robots.txt` bug fix:** `RobotsGenerator`'s default `disallow` list used to include `/_next`, `/admin`, `/api`, `/private`, `/static` — meaning every Next.js site using the defaults was telling AI crawlers not to fetch its own JS/CSS chunks. The default is now empty; pass your own `disallow` list explicitly if you need one. **If you're on 0.2.x and used the defaults, regenerate your `robots.txt`.**
-- **Subpath exports added** (`ai-visibility/detector`, `/schema`, `/generators`, `/express`, `/next`) — all opt-in. The root `ai-visibility` barrel is unchanged; 0.2.x code keeps working with no changes.
-- **`SchemaBuilder.fromHTML()` is now `async`** (it lazily loads `cheerio` instead of requiring it statically). If you called it without `await`, add one.
-- **Next.js support added** via `ai-visibility/next` (`createNextMiddleware`, `detectAndOptimize`) — previously the middleware only worked with Express.
-- Six new schema builders: `website()`, `softwareApplication()`, `breadcrumbList()`, `definedTerm()` / `definedTermSet()`, `offer()`, `aggregateRating()`.
-
----
-
 ## Roadmap
 
 - **v0.1.0** ✅ Middleware, robots.txt, schema, basic CLI
-- **v0.1.1** ✅ CI/CD workflows, dual-registry publishing, comprehensive docs & examples
 - **v0.2.0** ✅ Free tier dashboard with real-time analytics
-  - Self-hosted HTML/CSS dashboard (no frameworks)
-  - Real-time AI crawler tracking & readiness scoring
-  - Framework integrations: [Next.js](./examples/nextjs-dashboard), [Vue/Nuxt](./examples/vue-dashboard), [Vanilla Node.js](./examples/vanilla-dashboard)
-  - [Dashboard Guide](./DASHBOARD_GUIDE.md) with API docs & examples
-  - Fixed GitHub Actions dual-registry publishing
 - **v0.3.0** ✅ `/_next` robots.txt fix, edge-safe subpath exports, native Next.js middleware, six new schema builders
+- **v0.4.0** ✅ Vendor-verified crawler registry (+ published `crawlers.json`), complete subpath type exports, safe async `onDetect`, CI-checked examples
 - **v1.0.0** 🔮 Stable API, analytics leaderboard, community directory
 - **v2.0.0** 🔮 Cloud analytics, realtime monitoring, custom scoring models
+
+Upgrading between versions? See [CHANGELOG.md](./CHANGELOG.md) — every release documents breaking changes and migration steps inline.
 
 ---
 
 ## Documentation
 
-- **[Dashboard Guide](./DASHBOARD_GUIDE.md)** — Free tier analytics dashboard with real-time AI crawler tracking
-- **[API Reference](./docs/api-reference.md)** — Complete API documentation with all types and methods
-- **[Framework Integration Guide](./docs/framework-integration.md)** — Nuxt, Vue, React (SPA and server), and what's actually possible in each
-- **[Crawler Registry Guide](./docs/crawler-registry.md)** — how crawler UA tokens are verified against vendor docs, the re-verification checklist, and the multi-surface sharing assessment
-- **[Troubleshooting Guide](./docs/troubleshooting.md)** — Common issues and solutions
-- **[Performance Guide](./docs/performance.md)** — Benchmarks and optimization tips
+**[crawlpod.com/docs](https://crawlpod.com/docs)** is the primary documentation site:
 
-## Framework Support
+- [Overview & quickstart](https://crawlpod.com/docs)
+- [API reference](https://crawlpod.com/docs/api-reference) — every export, signature, and option
+- [Recipes](https://crawlpod.com/docs/recipes) — Next.js and Express, in depth
 
-Express and Next.js are covered above. For everything else, see the
-**[Framework Integration Guide](./docs/framework-integration.md)** for the
-full story — in short:
+Not yet on the site — covered here in the repo instead:
 
-| Framework | Has a server? | What works |
-|---|---|---|
-| Nuxt (Nitro) | Yes | Full integration — see [`examples/nuxt-app`](./examples/nuxt-app) |
-| React Router (framework mode) / Remix / Astro (server) / TanStack Start | Yes | Full integration — see [`examples/react-router-app`](./examples/react-router-app) |
-| Vue SPA (Vite, no server) | No | Build-time file generation + build-time JSON-LD only — see [`examples/vue-vite-spa`](./examples/vue-vite-spa) |
-| React SPA (Vite/CRA, no server) | No | Same as Vue SPA — see [`examples/react-vite-spa`](./examples/react-vite-spa) |
+- **[Framework Integration Guide](./docs/framework-integration.md)** — Nuxt, Vue, React (SPA and server) recipes, and what's honestly possible in each
+- **[Crawler Registry Guide](./docs/crawler-registry.md)** — verification methodology, re-verification checklist, multi-surface sharing
+- **[Troubleshooting Guide](./docs/troubleshooting.md)** — common issues and solutions
+- **[Performance Guide](./docs/performance.md)** — benchmarks and optimization tips
+- **[Dashboard Guide](./DASHBOARD_GUIDE.md)** — the free-tier analytics dashboard in depth
+- **[docs/api-reference.md](./docs/api-reference.md)** — the same API reference as the site, versioned with the repo
 
-A SPA with no server genuinely can't run this package's middleware or bot
-detection — there's no request to detect a crawler on. The guide is
-explicit about this rather than implying otherwise.
+---
 
 ## Contributing
 
-Contributions welcome! Please read [CONTRIBUTING.md](./docs/contributing.md) first.
+Contributions welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) first.
 
 ```bash
 git clone https://github.com/Muhammadfaizanjanjua109/ai-visibility
