@@ -1,0 +1,210 @@
+name: Examples
+
+# Checks that every example in examples/ actually builds against the
+# *current* state of this package (not the last published version) — the
+# failure mode this exists for is examples/docs describing an API that
+# never worked, caught only by chance. Only runs when something that could
+# actually affect an example changes, so unrelated PRs (a typo in a
+# troubleshooting doc, say) don't pay this cost.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsup.config.ts'
+      - '.github/workflows/examples.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'examples/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsup.config.ts'
+      - '.github/workflows/examples.yml'
+
+jobs:
+  build-package:
+    name: Build ai-visibility tarball
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - name: Pack tarball
+        run: npm pack --pack-destination /tmp/tarball
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-visibility-tarball
+          path: /tmp/tarball/*.tgz
+          retention-days: 1
+
+  # ---- Self-contained examples (already have their own package.json) ----
+  # A build failure here means a broken import/type — this is the "build
+  # check catches most of this class" case: no real per-framework runtime
+  # behavior to smoke-test beyond what building already exercises, except
+  # for the build-time file generation, which we do check.
+
+  vite-spa-examples:
+    name: "Example: ${{ matrix.dir }}"
+    needs: build-package
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [react-vite-spa, vue-vite-spa]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ai-visibility-tarball
+          path: /tmp/tarball
+      - name: Point package.json at the current repo's ai-visibility build
+        working-directory: examples/${{ matrix.dir }}
+        # Must happen BEFORE install: the example's package.json declares a
+        # real semver range (e.g. ^0.4.0) for real users to copy, but that
+        # version may not be published yet (it isn't, as of this workflow's
+        # own PR). A plain `npm install` against an unpublished range fails
+        # outright (ETARGET, exit 1) before ever reaching a tarball fix-up
+        # step — rewriting the dependency first means there's only one
+        # install, and it always resolves.
+        run: npm pkg set dependencies.ai-visibility="file:$(ls /tmp/tarball/*.tgz)"
+      - name: Install dependencies
+        working-directory: examples/${{ matrix.dir }}
+        run: npm install
+      - name: Typecheck + build
+        working-directory: examples/${{ matrix.dir }}
+        run: npm run build
+      - name: Smoke-check build-time generated files
+        working-directory: examples/${{ matrix.dir }}
+        run: |
+          test -f dist/robots.txt || (echo "dist/robots.txt was not generated" && exit 1)
+          test -f dist/llms.txt || (echo "dist/llms.txt was not generated" && exit 1)
+          grep -q 'application/ld+json' dist/index.html || (echo "JSON-LD missing from built index.html" && exit 1)
+
+  # ---- Framework-fragment examples (scaffold + copy in, no own package.json) ----
+  # These are the ones that actually broke in the past (a Nuxt example that
+  # was never run, a Next.js example whose middleware never worked) — a
+  # build check alone wouldn't have caught the public/robots.txt shadowing
+  # bug found while writing these, since that only shows up at runtime.
+  # Scaffolding fresh each run (rather than committing framework config
+  # files) also means these automatically re-test against whatever the
+  # framework's current CLI produces, catching future convention drift
+  # the same way the manual verification during development did.
+
+  nuxt-example:
+    name: "Example: nuxt-app"
+    needs: build-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ai-visibility-tarball
+          path: /tmp/tarball
+      - name: Scaffold a fresh minimal Nuxt app
+        run: npx --yes nuxi@latest init nuxt-scaffold --template minimal --packageManager npm --gitInit false --no-install
+      - name: Copy the example's server/app files into the scaffold
+        run: |
+          cp -r examples/nuxt-app/server nuxt-scaffold/server
+          cp examples/nuxt-app/app/app.vue nuxt-scaffold/app/app.vue
+          # The scaffold's placeholder public/robots.txt shadows our dynamic
+          # server/routes/robots.txt.ts (Nitro serves public/ before dynamic
+          # routes) — this is the exact bug this workflow exists to catch.
+          rm -f nuxt-scaffold/public/robots.txt
+      - name: Install dependencies + the current repo's ai-visibility build
+        working-directory: nuxt-scaffold
+        run: |
+          npm install
+          npm install /tmp/tarball/*.tgz
+      - name: Build
+        working-directory: nuxt-scaffold
+        run: npm run build
+      - name: Smoke test — start the server and check real responses
+        working-directory: nuxt-scaffold
+        run: |
+          PORT=3579 node .output/server/index.mjs &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:3579/ > /dev/null 2>&1 && break
+            sleep 0.5
+          done
+
+          ROBOTS=$(curl -sf http://localhost:3579/robots.txt)
+          echo "$ROBOTS" | grep -q 'GPTBot' || (echo "robots.txt missing generated content — is the scaffold's placeholder shadowing it again?" && kill $SERVER_PID && exit 1)
+
+          LLMS=$(curl -sf http://localhost:3579/llms.txt)
+          echo "$LLMS" | grep -q 'ai-visibility' || (echo "llms.txt missing generated content" && kill $SERVER_PID && exit 1)
+
+          BOT_HEADER=$(curl -sf -D - -o /dev/null -H "User-Agent: GPTBot/1.0" http://localhost:3579/ | grep -i x-ai-crawler || true)
+          echo "$BOT_HEADER" | grep -qi 'GPTBot' || (echo "x-ai-crawler header not set for a bot UA" && kill $SERVER_PID && exit 1)
+
+          kill $SERVER_PID
+
+  react-router-example:
+    name: "Example: react-router-app"
+    needs: build-package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # React Router's CLI/dev tooling requires Node >=22.22.
+          node-version: '24.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ai-visibility-tarball
+          path: /tmp/tarball
+      - name: Scaffold a fresh React Router (framework mode) app
+        run: npx --yes create-react-router@latest rr-scaffold --no-git-init --no-install
+      - name: Copy the example's app files into the scaffold
+        run: |
+          cp examples/react-router-app/app/root.tsx rr-scaffold/app/root.tsx
+          cp examples/react-router-app/app/routes.ts rr-scaffold/app/routes.ts
+          cp examples/react-router-app/app/routes/robots-txt.ts rr-scaffold/app/routes/robots-txt.ts
+          cp examples/react-router-app/app/routes/llms-txt.ts rr-scaffold/app/routes/llms-txt.ts
+      - name: Install dependencies + the current repo's ai-visibility build
+        working-directory: rr-scaffold
+        run: |
+          npm install
+          npm install /tmp/tarball/*.tgz
+      - name: Build
+        working-directory: rr-scaffold
+        # NODE_ENV=production is required for both build and start — without
+        # it the production server bundle mismatches React's dev/prod build
+        # internally (dispatcher.getOwner is not a function). Unrelated to
+        # ai-visibility, but real, and documented in the example's README.
+        run: NODE_ENV=production npm run build
+      - name: Smoke test — start the server and check real responses
+        working-directory: rr-scaffold
+        run: |
+          PORT=3580 NODE_ENV=production npm start &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:3580/ > /dev/null 2>&1 && break
+            sleep 0.5
+          done
+
+          ROBOTS=$(curl -sf http://localhost:3580/robots.txt)
+          echo "$ROBOTS" | grep -q 'GPTBot' || (echo "robots.txt missing generated content" && kill $SERVER_PID && exit 1)
+
+          LLMS=$(curl -sf http://localhost:3580/llms.txt)
+          echo "$LLMS" | grep -q 'ai-visibility' || (echo "llms.txt missing generated content" && kill $SERVER_PID && exit 1)
+
+          curl -sf http://localhost:3580/ | grep -qF 'application/ld+json' || (echo "JSON-LD missing from home page" && kill $SERVER_PID && exit 1)
+
+          kill $SERVER_PID

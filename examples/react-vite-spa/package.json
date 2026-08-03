@@ -9,11 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "ai-visibility": "^0.3.1",
+    "ai-visibility": "^0.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.5",
