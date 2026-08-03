@@ -90,22 +90,35 @@ import { createNextMiddleware } from 'ai-visibility/next'
 
 ## Features
 
-### 1. Next.js Middleware
+### 1. Next.js Middleware (Proxy)
 
-Detects AI crawlers in App Router `middleware.ts` — edge-safe, no Node built-ins, no `next` hard dependency (it's an optional peer).
+Detects AI crawlers in App Router `proxy.ts` — edge-safe, no Node built-ins, no `next` hard dependency (it's an optional peer). `onDetect` may be `async`; if it returns a promise, it's registered with the runtime's `waitUntil()` automatically so the work isn't dropped once the response is sent.
 
 ```typescript
-// middleware.ts
+// proxy.ts (Next.js 16+ — middleware.ts was renamed to proxy.ts)
 import { createNextMiddleware } from 'ai-visibility/next'
 
-export const middleware = createNextMiddleware({
+export default createNextMiddleware({
   // Mark bot requests with a header (default: 'x-ai-crawler')
-  onDetect: (bot) => console.log(`${bot.name} (${bot.company}) detected`),
+  onDetect: async (bot) => {
+    console.log(`${bot.name} (${bot.company}) detected`)
+    // async work here is safely kept alive via event.waitUntil()
+  },
 
   // Optionally rewrite bot requests to an alternate, AI-optimized route
   // rewrite: '/ai-landing',
 })
 
+export const config = { matcher: ['/:path*'] }
+```
+
+On Next.js < 16 (or the deprecated-but-still-working path on 16), use `middleware.ts` with a named export instead — same function, just a different file name and export style:
+
+```typescript
+// middleware.ts
+import { createNextMiddleware } from 'ai-visibility/next'
+
+export const middleware = createNextMiddleware({ /* ...same options... */ })
 export const config = { matcher: ['/:path*'] }
 ```
 
@@ -143,7 +156,7 @@ app.use(optimizeResponseForAI({
 }))
 ```
 
-**Detected crawlers:** GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Bingbot, CCBot, YouBot, Cohere, Meta, Apple, Diffbot, Bytespider + custom.
+**Detected crawlers:** GPTBot, ChatGPT-User, OAI-SearchBot (OpenAI) · ClaudeBot, Claude-User, Claude-SearchBot (Anthropic) · PerplexityBot, Perplexity-User (Perplexity) · Google-Extended, Googlebot (Google) · Bingbot (Microsoft) · CCBot (Common Crawl) · Amazonbot, Amzn-SearchBot, Amzn-User (Amazon) · meta-externalagent (Meta) · Applebot-Extended (Apple) · Bytespider (ByteDance, unverified — no official vendor docs exist) · YouBot, cohere-ai, Diffbot + custom. Every token above (except where noted) is verified against the vendor's own documentation — see the [Crawler Registry Guide](./docs/crawler-registry.md).
 
 ---
 
@@ -211,7 +224,7 @@ fs.writeFileSync('./public/llms.txt', content)
 | Organization | `organization()` | |
 | Person | `person()` | |
 | WebSite | `website()` | Optional `SearchAction` / sitelinks searchbox |
-| SoftwareApplication | `softwareApplication()` | Reuses `offer()` / `aggregateRating()` when passed |
+| SoftwareApplication | `softwareApplication()` | `offers`/`aggregateRating` take raw `OfferSchemaData`/`AggregateRatingSchemaData` — don't call `offer()`/`aggregateRating()` yourself first |
 | BreadcrumbList | `breadcrumbList()` | Accepts absolute URLs, or relative paths + `baseUrl` |
 | DefinedTerm / DefinedTermSet | `definedTerm()` / `definedTermSet()` | Glossary pages — a strong GEO citation surface |
 | Offer | `offer()` | Nested node (no `@context`) — embed in Product/SoftwareApplication |
@@ -502,6 +515,7 @@ import type {
 - **[Dashboard Guide](./DASHBOARD_GUIDE.md)** — Free tier analytics dashboard with real-time AI crawler tracking
 - **[API Reference](./docs/api-reference.md)** — Complete API documentation with all types and methods
 - **[Framework Integration Guide](./docs/framework-integration.md)** — Nuxt, Vue, React (SPA and server), and what's actually possible in each
+- **[Crawler Registry Guide](./docs/crawler-registry.md)** — how crawler UA tokens are verified against vendor docs, the re-verification checklist, and the multi-surface sharing assessment
 - **[Troubleshooting Guide](./docs/troubleshooting.md)** — Common issues and solutions
 - **[Performance Guide](./docs/performance.md)** — Benchmarks and optimization tips
 

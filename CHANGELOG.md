@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-08-03
+
+Minor, not patch: this release adds new backward-compatible public API
+surface (new crawler entries and `BotInfo` fields, new subpath type
+exports, `getUnverifiedBots()`, `onDetect`'s widened return type) rather
+than only fixing bugs, so it follows semver as a minor bump.
+
+### Fixed
+
+- **Stale/incorrect AI crawler UA tokens.** `Claude-Web` was Anthropic's deprecated pre-2024 token — replaced with the current `Claude-User`. Every crawler entry was re-verified against the vendor's own published documentation (not third-party SEO-blog lists) rather than assumed correct; see `docs/crawler-registry.md` for sources and the full audit trail.
+- **`onDetect` in `createNextMiddleware()` could silently drop async work.** It was called but never awaited, and the middleware had no access to Next.js's `waitUntil()` — an async `onDetect` (e.g. writing to an analytics backend) could be torn down mid-flight the instant the response was sent, with no error and no completed write. `onDetect` may now return a `Promise<void>`; when it does, and the runtime passes a `NextFetchEvent` as the second middleware argument (which Next.js always does), the promise is registered with `event.waitUntil()` and a rejection can no longer surface as an unhandled rejection or affect the response.
+- **Subpath type re-exports were incomplete.** `ai-visibility/schema`, `/generators`, and `/express` exported their classes/functions but none of their parameter types — a consumer importing `RobotsGenerator` from `ai-visibility/generators` had to reach into the root barrel (or an internal path) just to get `RobotsConfig`. All five subpaths now re-export the types that belong to them.
+- Corrected stale package-scope references (`@Muhammadfaizanjanjua109/ai-visibility`, `@Muhammadfaizanjunjua109/ai-visibility` — the package is unscoped) across `docs/troubleshooting.md`, `DEVELOPMENT.md`, and `examples/sveltekit-app/README.md`.
+- **`examples/nextjs-app/README.md` was broken in more than one way**, not just the package scope: its middleware example assigned `createAIMiddleware` (Express-shaped: `(req, res, next)`) directly to Next.js's `middleware` export, which never worked — replaced with `ai-visibility/next`'s `createNextMiddleware`. Its dynamic route examples accessed `params.id`/`params.slug` synchronously, which throws/warns as of Next.js 15+ (`params` is a `Promise`) — fixed to `await params`.
+
+### Added
+
+- Nine new vendor-verified crawler entries: `OAI-SearchBot` (OpenAI), `Claude-SearchBot` (Anthropic), `Perplexity-User` (Perplexity), `Amazonbot`, `Amzn-SearchBot`, `Amzn-User` (Amazon — a three-tier training/search/user-fetch split, same shape as OpenAI/Anthropic/Perplexity).
+- `BotInfo` gained optional `verified`, `sourceUrl`, and `lastChecked` fields, and `getUnverifiedBots()` (exported from `ai-visibility/detector`) surfaces every crawler entry that hasn't been confirmed against official vendor documentation — currently just `Bytespider`, for which no official ByteDance documentation exists at all.
+- `docs/crawler-registry.md`: the verification methodology, a re-verification checklist (one vendor doc URL per crawler family), and an assessment of whether the crawler list should be shared across the npm package, the CrawlPod WordPress plugin, and an upcoming Shopify app (recommendation: publish it as plain JSON for other surfaces to fetch and vendor at build time — not a code dependency, not a new package).
+- `SchemaBuilder.softwareApplication()` now documents that `offers`/`aggregateRating` take raw `OfferSchemaData`/`AggregateRatingSchemaData` — not a pre-built node from calling `offer()`/`aggregateRating()` yourself first. No signature change.
+- Next.js docs/JSDoc updated for the `middleware.ts` → `proxy.ts` rename in Next.js 16 (`middleware.ts` still works today but is deprecated); both conventions are shown.
+
+### Test coverage
+
+76 → 112 tests. The new crawler registry tests (32) cover realistic UA strings per vendor, near-miss strings that must not match, and a structural regression test that fails if any crawler pattern is ever version-pinned (e.g. `gptbot/1` instead of `gptbot`). The `onDetect`/`waitUntil` fix added 4 tests.
+
 ## [0.3.3] - 2026-08-03
 
 ### Fixed
