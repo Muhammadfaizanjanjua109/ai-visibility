@@ -281,16 +281,24 @@ import { ContentAnalyzer } from 'ai-visibility'
 import fs from 'fs'
 
 const analyzer = new ContentAnalyzer({
-  checkAnswerPlacement: true,      // Check if answer is front-loaded
-  checkFactDensity: true,          // Check fact density
-  checkHeadingStructure: true,     // Check H1/H2/H3 hierarchy
-  checkEEAT: true,                 // Check author/org signals
-  checkSnippability: true,         // Check if content is snippable
-  checkSchema: true                // Check JSON-LD markup
+  checkAnswerPlacement: true,        // Check if answer is front-loaded
+  checkFactDensity: true,            // Check fact density
+  checkHeadingStructure: true,       // Check H1/H2/H3 hierarchy
+  checkEEAT: true,                   // Check author/org signals
+  checkSnippability: true,           // Check if content is snippable
+  checkSchema: true,                 // Check JSON-LD markup
+  checkCrawlerAccessibility: true    // Check meta robots / robots.txt / llms.txt
 })
 
 const html = fs.readFileSync('./pages/pricing.html', 'utf-8')
-const result = await analyzer.analyze(html)
+
+// Optional 2nd argument improves the crawlerAccessibility check — without
+// it, that dimension can only see the page's own meta robots tag.
+// `ai-visibility audit <url>` / `audit --dir` supply this automatically.
+const result = await analyzer.analyze(html, {
+  robotsTxt: fetchedRobotsTxtContent, // optional
+  hasLlmsTxt: true,                   // optional
+})
 
 console.log(`Score: ${result.overallScore}/100`)
 // Score: 78/100
@@ -302,7 +310,8 @@ console.log(result.breakdown)
 //   headingStructure: 95,
 //   eeatSignals: 70,
 //   snippability: 80,
-//   schemaCoverage: 50
+//   schemaCoverage: 50,
+//   crawlerAccessibility: 100
 // }
 
 // Get specific issues
@@ -312,13 +321,16 @@ result.issues.forEach(issue => {
 })
 ```
 
-**Scoring breakdown (weights):**
-- **Answer Front-Loading** (25%) — Is the main answer in the first 20% of content?
+**Scoring breakdown (fixed, published weights — see `docs/scoring.md` for
+the full rationale and `ContentAnalyzer.SCORING_WEIGHTS` for the
+machine-readable source of truth):**
+- **Answer Placement** (20%) — Is the main answer in the first 20% of content?
 - **E-E-A-T Signals** (20%) — Author, organization, contact, trust signals present?
-- **Fact Density** (15%) — 4-6 verifiable facts per 100 words?
-- **Heading Structure** (15%) — Proper H1 → H2 → H3 hierarchy?
+- **Structure / Heading Hierarchy** (15%) — Proper H1 → H2 → H3 hierarchy?
 - **Schema Coverage** (15%) — JSON-LD markup present and valid?
-- **Snippability** (10%) — Can each section stand alone as a snippet?
+- **Fact Density** (10%) — 4-6 verifiable facts per 100 words?
+- **Snippability / Semantic Clarity** (10%) — Can each section stand alone as a snippet?
+- **Crawler Accessibility** (10%) — Does meta robots / robots.txt / llms.txt actually let AI crawlers fetch this page?
 
 **Constructor options:**
 - `checkAnswerPlacement?` — Enable answer front-loading check (default: `true`)
@@ -327,9 +339,13 @@ result.issues.forEach(issue => {
 - `checkEEAT?` — Enable E-E-A-T signal check (default: `true`)
 - `checkSnippability?` — Enable snippability check (default: `true`)
 - `checkSchema?` — Enable schema coverage check (default: `true`)
+- `checkCrawlerAccessibility?` — Enable crawler accessibility check (default: `true`)
 
 **Methods:**
-- `async analyze(html: string): Promise<AIReadabilityScore>` — Analyze HTML and return score + issues
+- `async analyze(html: string, context?: AnalysisContext): Promise<AIReadabilityScore>` — Analyze HTML and return score + issues. `context` is optional (`{ robotsTxt?: string; hasLlmsTxt?: boolean }`) and only improves the `crawlerAccessibility` dimension — omitting it is fully backward compatible with pre-0.5.0 calls.
+
+**Static:**
+- `ContentAnalyzer.SCORING_WEIGHTS: ScoringDimension[]` — the fixed weight table above, as data. Also published as `dist/scoring-weights.json`; see `docs/scoring.md`.
 
 ---
 
@@ -530,6 +546,13 @@ interface AnalyzerOptions {
   checkEEAT?: boolean
   checkSnippability?: boolean
   checkSchema?: boolean
+  checkCrawlerAccessibility?: boolean
+}
+
+// Optional 2nd argument to analyze() — see docs/scoring.md
+interface AnalysisContext {
+  robotsTxt?: string
+  hasLlmsTxt?: boolean
 }
 
 interface AIReadabilityScore {
@@ -541,16 +564,25 @@ interface AIReadabilityScore {
     eeatSignals: number
     snippability: number
     schemaCoverage: number
+    crawlerAccessibility: number
   }
   issues: AnalysisIssue[]
   recommendations: string[]
 }
 
 interface AnalysisIssue {
-  type: 'answer-placement' | 'fact-density' | 'heading-structure' | 'eeat' | 'snippability' | 'schema' | 'meta'
+  type: 'answer-placement' | 'fact-density' | 'heading-structure' | 'eeat' | 'snippability' | 'schema' | 'crawler-accessibility' | 'meta'
   severity: 'high' | 'medium' | 'low'
   message: string
   fix: string
+}
+
+// ContentAnalyzer.SCORING_WEIGHTS entry shape — also published as dist/scoring-weights.json
+interface ScoringDimension {
+  key: keyof AIReadabilityScore['breakdown']
+  label: string
+  weight: number
+  description: string
 }
 ```
 

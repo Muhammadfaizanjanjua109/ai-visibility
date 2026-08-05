@@ -23,7 +23,8 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 | AI bots can access my site | Middleware (Express or Next.js) | Clean, JS-free HTML for AI crawlers |
 | Tell AI bots my content exists | `robots.txt` + `llms.txt` | Auto-generated config files |
 | Help AI understand my content | Schema injection | Auto-generated JSON-LD markup (11 schema types) |
-| Know if I'm doing it right | Content analyzer | Score + specific fixes |
+| Know if I'm doing it right | Content analyzer / `npx ai-visibility audit <url>` | Score across 7 GEO dimensions + specific fixes |
+| Gate CI on AI-readiness | `npx ai-visibility lint` | Non-zero exit code below a threshold |
 | Track AI crawler visits | Visitor logger | Log of all AI crawler activity |
 | Monitor AI activity visually | Free Dashboard | Real-time analytics & insights |
 | Get started quickly | CLI tool | 1 command to set up everything |
@@ -64,6 +65,30 @@ export const config = { matcher: ['/:path*'] }
 ```
 
 That's it — GPTBot, ClaudeBot, PerplexityBot, and 18 other known AI crawlers now get an `x-ai-crawler` response header, and `onDetect` fires (safely, even if it's `async`) whenever one hits your site. For Express, or for a framework-agnostic version with no request/response objects at all, see [Package Exports](#package-exports) below and the full recipes at [crawlpod.com/docs/recipes](https://crawlpod.com/docs/recipes).
+
+---
+
+## CLI
+
+```bash
+npx ai-visibility audit <url>              # score a live page across 7 GEO dimensions
+npx ai-visibility audit --dir ./dist       # score a local build directory instead
+npx ai-visibility audit <url> --json       # machine-readable output
+npx ai-visibility audit <url> --fail-under 70   # exit 1 if any score is below 70 — CI gate
+
+npx ai-visibility lint                     # shorthand: audit --dir . --fail-under 50, for CI/build steps
+
+npx ai-visibility robots --preset block-training   # allow-all | block-training | block-all
+npx ai-visibility llms --site-name "My Site"
+
+npx ai-visibility init                     # scaffold robots.txt, llms.txt, framework-specific instructions
+npx ai-visibility logs --summary           # if you're using AIVisitorLogger
+```
+
+Every command prints a one-line, dimmed "Powered by CrawlPod" footer — pass
+`--quiet`/`-q` to suppress it. See [docs/scoring.md](./docs/scoring.md) for
+what `audit`/`lint` actually score and why those weights, and
+[docs/api-reference.md](./docs/api-reference.md) for the full flag reference.
 
 ---
 
@@ -139,9 +164,9 @@ Every export, one line each — see [crawlpod.com/docs/api-reference](https://cr
 - `createNextMiddleware()` — `proxy.ts`/`middleware.ts` helper; `onDetect` may be `async`, safely kept alive via `event.waitUntil()`
 
 **Root barrel only** (also re-exports everything above):
-- `ContentAnalyzer` — scores HTML for AI readability (answer front-loading, fact density, heading structure, E-E-A-T, snippability, schema coverage) with specific fixes
+- `ContentAnalyzer` — scores HTML across 7 GEO dimensions (answer placement, E-E-A-T, structure, structured data, fact density, semantic clarity, crawler accessibility) with specific fixes; fixed published weights via `ContentAnalyzer.SCORING_WEIGHTS` — see [docs/scoring.md](./docs/scoring.md)
 - `Dashboard`, `createDashboard()` — self-hosted analytics dashboard, no infrastructure or data collection
-- CLI (`npx ai-visibility init | analyze | generate | logs`) — scaffolding and inspection commands
+- CLI (`npx ai-visibility audit | lint | init | analyze | generate | robots | llms | logs`) — see [CLI](#cli) above
 
 ### Crawler registry
 
@@ -168,7 +193,8 @@ Every export, one line each — see [crawlpod.com/docs/api-reference](https://cr
 | Bot Middleware (Express + Next.js) | ❌ | ❌ | ❌ | ✅ |
 | Edge-safe / zero-dependency core | ❌ | ❌ | ❌ | ✅ |
 | llms.txt Generation | ❌ | ❌ | ❌ | ✅ |
-| AI Content Analyzer | ❌ | ❌ | Basic | ✅ AI-specific |
+| AI Content Analyzer | ❌ | ❌ | Basic | ✅ 7-dimension, published weights |
+| CI Gate (`audit`/`lint --fail-under`) | ❌ | ❌ | ❌ | ✅ |
 | Schema Generator | Manual | Manual | Basic | ✅ Auto, 11 types |
 | Crawler Monitor | ❌ | ❌ | ❌ | ✅ |
 | **Analytics Dashboard** | ⏳ | ⏳ | ❌ | ✅ Self-hosted |
@@ -185,6 +211,8 @@ Every export, one line each — see [crawlpod.com/docs/api-reference](https://cr
 - **v0.2.0** ✅ Free tier dashboard with real-time analytics
 - **v0.3.0** ✅ `/_next` robots.txt fix, edge-safe subpath exports, native Next.js middleware, six new schema builders
 - **v0.4.0** ✅ Vendor-verified crawler registry (+ published `crawlers.json`), complete subpath type exports, safe async `onDetect`, CI-checked examples
+- **v0.5.0** ✅ `audit`/`lint` CLI commands, 7-dimension GEO scoring with fixed published weights (+ published `scoring-weights.json`), `robots.txt` block-all preset, top-level `robots`/`llms` CLI aliases
+- **v0.6.0** 🔮 Semantic HTML stripping for AI responses, `llms-full.txt`/`llms-small.txt` generation, MDX/sitemap auto-discovery, crawler-visit webhooks
 - **v1.0.0** 🔮 Stable API, analytics leaderboard, community directory
 - **v2.0.0** 🔮 Cloud analytics, realtime monitoring, custom scoring models
 
@@ -204,6 +232,8 @@ Not yet on the site — covered here in the repo instead:
 
 - **[Framework Integration Guide](./docs/framework-integration.md)** — Nuxt, Vue, React (SPA and server) recipes, and what's honestly possible in each
 - **[Crawler Registry Guide](./docs/crawler-registry.md)** — verification methodology, re-verification checklist, multi-surface sharing
+- **[GEO Scoring Guide](./docs/scoring.md)** — the 7 scoring dimensions, fixed weights and rationale, and how to consume `scoring-weights.json` from another surface
+- **[Roadmap Decisions](./docs/roadmap-decisions.md)** — assessed-but-deferred items (`ai.txt`, crawler IP verification) and why
 - **[Troubleshooting Guide](./docs/troubleshooting.md)** — common issues and solutions
 - **[Performance Guide](./docs/performance.md)** — benchmarks and optimization tips
 - **[Dashboard Guide](./DASHBOARD_GUIDE.md)** — the free-tier analytics dashboard in depth

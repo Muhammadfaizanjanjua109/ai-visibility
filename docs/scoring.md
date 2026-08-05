@@ -1,0 +1,129 @@
+# GEO Scoring: Dimensions, Weights, and How to Use It Elsewhere
+
+`ContentAnalyzer` scores a page across seven dimensions and combines them
+into a single `overallScore` (0-100) using fixed, published weights — no
+machine learning, no black box. Every dimension's contribution is a plain
+constant, defined once in `src/analyzer/content-analyzer.ts` as
+`ContentAnalyzer.SCORING_WEIGHTS`, and documented here.
+
+**This is a heuristic, not a guarantee.** It estimates how easy a page is
+for an AI system to find, parse, and cite — the same way Lighthouse
+estimates page performance without guaranteeing a specific PageSpeed
+Insights score. Nothing here implies a Google Search ranking outcome;
+Google's own guidance is that sites don't need special AI files to be
+found. Treat the score as a prioritized to-do list, not a pass/fail grade
+of AI visibility itself.
+
+## The seven dimensions
+
+| Dimension | Key | Weight | What it checks |
+|---|---|---|---|
+| Answer placement | `answerFrontLoading` | 0.20 | Whether a direct answer to the page's topic appears near the top, where AI systems weight content most heavily. |
+| Authority signals (E-E-A-T) | `eeatSignals` | 0.20 | Author, organization, contact, and trust-signal markup — what separates "extractable" content from "citable" content. |
+| Structure | `headingStructure` | 0.15 | A single H1 and a consistent, unskipped heading hierarchy — what makes a page machine-segmentable. |
+| Structured data | `schemaCoverage` | 0.15 | Valid JSON-LD, the most direct machine-readable signal a page can offer. |
+| Factual density | `factDensity` | 0.10 | Concrete numbers, dates, and statistics per 100 words. The most heuristic of the checks (regex-based), weighted down accordingly. |
+| Semantic clarity | `snippability` | 0.10 | Whether each section under a heading stands alone with enough context to be quoted or excerpted independently. |
+| Crawler accessibility | `crawlerAccessibility` | 0.10 | Whether AI crawlers are actually allowed to fetch the page at all: meta robots, robots.txt, llms.txt. |
+
+Weights sum to 1.0 — enforced by a test (`__tests__/content-analyzer.test.ts`),
+so this table can't silently drift from what the code actually computes.
+
+### Why these weights
+
+Answer placement and authority signals are weighted highest (0.20 each)
+because they're the two dimensions most directly tied to whether an AI
+system both *can* extract an answer and *would trust* citing it — a
+perfectly structured page nobody trusts, or a trustworthy page with no
+extractable answer, both fail at the actual goal. Structure and structured
+data (0.15 each) are the two most direct machine-readability signals.
+Factual density, semantic clarity, and crawler accessibility are weighted
+lowest (0.10 each): factual density is the weakest/most heuristic check;
+semantic clarity overlaps somewhat with structure and answer placement, so
+it's weighted to avoid double-counting; and crawler accessibility is more
+of a gate than a differentiator — a hard block (noindex, a blocking
+robots.txt rule) already zeroes out the value of every other dimension
+before this one even runs, and most sites aren't blocked at all.
+
+### Crawler accessibility needs site context to be fully accurate
+
+Called directly — `analyzer.analyze(html)` — the `crawlerAccessibility`
+check can only see the page's own `<meta name="robots">` tag. It can't see
+robots.txt or llms.txt without being told about them, and it says so: a
+low-severity issue is added recommending `ai-visibility audit <url>` for
+the full check. Pass a second argument to get the complete picture:
+
+```ts
+const result = await analyzer.analyze(html, {
+  robotsTxt: fetchedRobotsTxtContent, // optional
+  hasLlmsTxt: true,                   // optional
+})
+```
+
+`ai-visibility audit <url>` and `audit --dir` both do this automatically —
+fetching (or reading, for `--dir`) `robots.txt`/`llms.txt` alongside the
+page itself.
+
+## Using this from the CLI
+
+```bash
+npx ai-visibility audit <url>              # score a live page
+npx ai-visibility audit --dir ./dist       # score a local build directory
+npx ai-visibility audit <url> --json       # machine-readable output
+npx ai-visibility audit <url> --fail-under 70   # exit 1 if any score is below 70 — CI gate
+
+npx ai-visibility lint                     # shorthand: audit --dir . --fail-under 50
+```
+
+`lint` exists for CI/build steps — same engine as `audit`, just pointed at
+the current directory with a CI-sane default threshold, framed as
+warnings. There's no separate "linter" implementation to keep in sync.
+
+## Canonical source for other CrawlPod surfaces
+
+This package's scoring is the canonical implementation. crawlpod.com's
+scanner and the CrawlPod WordPress plugin should align to it rather than
+maintaining their own copies of the weights — a hand-maintained duplicate
+is exactly the kind of drift that already happened once with the crawler
+registry (see `docs/crawler-registry.md`).
+
+The weights are published as `dist/scoring-weights.json`
+(generated by `scripts/generate-scoring-weights-json.js`, same pattern as
+`dist/crawlers.json`) and become fetchable, unauthenticated, from a CDN
+mirror of the npm package the moment a new version ships:
+
+```bash
+curl -sL https://cdn.jsdelivr.net/npm/ai-visibility@0.5.0/dist/scoring-weights.json -o scoring-weights.json
+```
+
+Fetch at build/release time, pinned to a version — never at runtime, and
+never `@latest` for anything beyond a quick check. Check `schemaVersion`
+first and fail loudly if it's higher than what your consumer was written
+against, rather than silently misreading a changed shape. Same rules as
+`crawlers.json`'s consumption pattern in `docs/crawler-registry.md`.
+
+### `dist/scoring-weights.json` shape
+
+```json
+{
+  "schemaVersion": 1,
+  "packageVersion": "0.5.0",
+  "generatedAt": "2026-08-05T00:00:00.000Z",
+  "source": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/src/analyzer/content-analyzer.ts",
+  "docs": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/docs/scoring.md",
+  "dimensions": [
+    {
+      "key": "answerFrontLoading",
+      "label": "Answer placement",
+      "weight": 0.2,
+      "description": "..."
+    }
+  ]
+}
+```
+
+`schemaVersion` bumps only if the *shape* of a `dimensions[]` entry changes
+in a way a consumer would need to handle explicitly. Adding a new
+dimension, or changing a weight, isn't a schema-version bump — it's a
+`packageVersion` bump, which is why consumers should pin a version rather
+than track `@latest`.
