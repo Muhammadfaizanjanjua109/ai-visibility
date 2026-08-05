@@ -83,4 +83,9 @@ describe('zero runtime dependencies (edge-safe subpaths)', () => {
         const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/schema.ts'))
         expect(external).toEqual([])
     })
+
+    it('the internal scoring-weights build artifact has no static external imports (must stay cheerio/undici-free — see scripts/generate-scoring-weights-json.js)', () => {
+        const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/scoring-weights-internal.ts'))
+        expect(external).toEqual([])
+    })
 })

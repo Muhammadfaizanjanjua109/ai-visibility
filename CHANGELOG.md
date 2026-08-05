@@ -22,6 +22,10 @@ Semantic HTML stripping, `llms-full.txt`/`llms-small.txt` generation,
 MDX/sitemap auto-discovery, and crawler-visit webhooks are targeted for
 v0.6.0.
 
+### Fixed
+
+- **The build script that generates `dist/scoring-weights.json` crashed on Node 18** (`ReferenceError: File is not defined`, thrown inside `undici`). It required the full `dist/index.js` bundle just to read a data constant off `ContentAnalyzer`; `index.js` statically imports `cheerio`, and cheerio 1.x depends on `undici` (for `cheerio.fromURL()`) — eagerly loading that pulled in code that isn't compatible with the Node 18.x patch releases this package's `engines` field still supports. Moved the weight data itself into a new zero-dependency module, `src/analyzer/scoring-weights.ts` (re-exported as `ContentAnalyzer.SCORING_WEIGHTS`, no API change), with its own internal-only build artifact (`dist/scoring-weights-internal.js`, not part of the public `exports` map) for the script to read instead. Added to the zero-dependency import-graph test alongside `/detector` and `/schema` so this class of regression can't reappear silently.
+
 ### Added
 
 - **`npx ai-visibility audit <url>`** — the headline feature. Fetches a live URL (or scans a local build directory via `--dir`), scores it against the analyzer below, and prints a readable report. `--json` for machine-readable output; `--fail-under <n>` exits non-zero when any score falls below the threshold, so it works as a CI gate with no implicit default — gating is opt-in. Best-effort fetches `robots.txt`/`llms.txt` at the same origin (local files for `--dir`) to feed the new `crawlerAccessibility` dimension; a failed/missing fetch is treated as "unknown," never a hard error.

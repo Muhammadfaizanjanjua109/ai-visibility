@@ -4,8 +4,9 @@
 // ============================================================
 
 import * as cheerio from 'cheerio'
-import type { AIReadabilityScore, AnalysisContext, AnalysisIssue, AnalyzerOptions, ScoringDimension } from '../types'
+import type { AIReadabilityScore, AnalysisContext, AnalysisIssue, AnalyzerOptions } from '../types'
 import { AI_CRAWLERS } from '../data/crawlers'
+import { SCORING_WEIGHTS } from './scoring-weights'
 
 const DEFAULT_OPTIONS: Required<AnalyzerOptions> = {
     checkAnswerPlacement: true,
@@ -16,63 +17,6 @@ const DEFAULT_OPTIONS: Required<AnalyzerOptions> = {
     checkSchema: true,
     checkCrawlerAccessibility: true,
 }
-
-/**
- * Fixed, published GEO scoring weights. No ML, no black box — every
- * dimension's contribution to `overallScore` is a plain constant documented
- * here and in docs/scoring.md. This is the canonical source other CrawlPod
- * surfaces (crawlpod.com's scanner, the WordPress plugin) should align to;
- * it's also published as `dist/scoring-weights.json` (see
- * scripts/generate-scoring-weights-json.js) for surfaces that can't import
- * this package directly. Weights sum to 1.0 — enforced by a test.
- *
- * Lives as a static on `ContentAnalyzer` (rather than a standalone barrel
- * export) so the root export surface stays classes/functions-only.
- */
-const SCORING_WEIGHTS: ScoringDimension[] = [
-    {
-        key: 'answerFrontLoading',
-        label: 'Answer placement',
-        weight: 0.20,
-        description: 'Whether a direct answer to the page\'s topic appears near the top, where AI systems weight content most heavily.',
-    },
-    {
-        key: 'eeatSignals',
-        label: 'Authority signals (E-E-A-T)',
-        weight: 0.20,
-        description: 'Author, organization, contact, and trust-signal markup — what separates "extractable" content from "citable" content.',
-    },
-    {
-        key: 'headingStructure',
-        label: 'Structure',
-        weight: 0.15,
-        description: 'A single H1 and a consistent, unskipped heading hierarchy, which is what makes a page machine-segmentable.',
-    },
-    {
-        key: 'schemaCoverage',
-        label: 'Structured data',
-        weight: 0.15,
-        description: 'Valid JSON-LD structured data, the most direct machine-readable signal a page can offer.',
-    },
-    {
-        key: 'factDensity',
-        label: 'Factual density',
-        weight: 0.10,
-        description: 'Concrete numbers, dates, and statistics per 100 words. The most heuristic of the checks, weighted accordingly.',
-    },
-    {
-        key: 'snippability',
-        label: 'Semantic clarity',
-        weight: 0.10,
-        description: 'Whether each section under a heading stands alone with enough context to be quoted or excerpted independently.',
-    },
-    {
-        key: 'crawlerAccessibility',
-        label: 'Crawler accessibility',
-        weight: 0.10,
-        description: 'Whether AI crawlers are actually allowed to fetch the page at all (meta robots, robots.txt, llms.txt) — a gate more than a differentiator, since a hard block already zeroes out every other dimension\'s value.',
-    },
-]
 
 const WEIGHTS = Object.fromEntries(SCORING_WEIGHTS.map((d) => [d.key, d.weight])) as Record<
     keyof AIReadabilityScore['breakdown'],

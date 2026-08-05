@@ -3,8 +3,12 @@
 `ContentAnalyzer` scores a page across seven dimensions and combines them
 into a single `overallScore` (0-100) using fixed, published weights — no
 machine learning, no black box. Every dimension's contribution is a plain
-constant, defined once in `src/analyzer/content-analyzer.ts` as
-`ContentAnalyzer.SCORING_WEIGHTS`, and documented here.
+constant, defined once in `src/analyzer/scoring-weights.ts` and re-exported
+as `ContentAnalyzer.SCORING_WEIGHTS`, and documented here. (That data lives
+in its own zero-dependency module — kept separate from
+`content-analyzer.ts`'s `cheerio` import so build tooling can read it
+without pulling in `cheerio`'s `undici` dependency; see the comment at the
+top of `src/analyzer/scoring-weights.ts` for why that matters.)
 
 **This is a heuristic, not a guarantee.** It estimates how easy a page is
 for an AI system to find, parse, and cite — the same way Lighthouse
@@ -109,7 +113,7 @@ against, rather than silently misreading a changed shape. Same rules as
   "schemaVersion": 1,
   "packageVersion": "0.5.0",
   "generatedAt": "2026-08-05T00:00:00.000Z",
-  "source": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/src/analyzer/content-analyzer.ts",
+  "source": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/src/analyzer/scoring-weights.ts",
   "docs": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/docs/scoring.md",
   "dimensions": [
     {
