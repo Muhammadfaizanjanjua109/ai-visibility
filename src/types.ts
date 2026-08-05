@@ -215,6 +215,7 @@ export interface AnalysisIssue {
     | 'eeat'
     | 'snippability'
     | 'schema'
+    | 'crawler-accessibility'
     | 'meta'
     severity: 'high' | 'medium' | 'low'
     message: string
@@ -230,6 +231,7 @@ export interface AIReadabilityScore {
         eeatSignals: number
         snippability: number
         schemaCoverage: number
+        crawlerAccessibility: number
     }
     issues: AnalysisIssue[]
     recommendations: string[]
@@ -242,6 +244,28 @@ export interface AnalyzerOptions {
     checkEEAT?: boolean
     checkSnippability?: boolean
     checkSchema?: boolean
+    checkCrawlerAccessibility?: boolean
+}
+
+/**
+ * Optional site context for the crawlerAccessibility dimension. Without it,
+ * that dimension can only check the page's own <meta name="robots"> tag —
+ * passing robots.txt content and llms.txt presence (as `audit <url>` and
+ * `audit --dir` both do) lets it check AI-crawler-specific rules too.
+ */
+export interface AnalysisContext {
+    /** Raw robots.txt content for the site being analyzed, if known. */
+    robotsTxt?: string
+    /** Whether an llms.txt file was found for the site being analyzed. */
+    hasLlmsTxt?: boolean
+}
+
+/** One entry of the published, fixed GEO scoring weights (see `SCORING_WEIGHTS`). */
+export interface ScoringDimension {
+    key: keyof AIReadabilityScore['breakdown']
+    label: string
+    weight: number
+    description: string
 }
 
 // ---- Monitor ----

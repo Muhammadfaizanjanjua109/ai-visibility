@@ -47,6 +47,8 @@ export type {
     AggregateRatingSchemaData,
     AIReadabilityScore,
     AnalyzerOptions,
+    AnalysisContext,
+    ScoringDimension,
     CrawlerLog,
     LoggerConfig,
     AnalysisIssue,

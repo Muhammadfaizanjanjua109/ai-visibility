@@ -132,4 +132,20 @@ export class RobotsGenerator {
             sitemapUrl: options.sitemapUrl,
         }).generate()
     }
+
+    /**
+     * Returns a robots.txt that blocks every known AI crawler. This is a
+     * control mechanism, not a recommendation — many site owners want to
+     * appear in AI answers without being blocked, and just as many want the
+     * opposite; this preset exists for the latter without editorializing
+     * about which choice is right.
+     */
+    static blockAll(options: Partial<Pick<RobotsConfig, 'disallow' | 'sitemapUrl'>> = {}): string {
+        return new RobotsGenerator({
+            allowAI: [],
+            blockAI: AI_CRAWLERS.map((b) => b.name),
+            disallow: options.disallow ?? DEFAULT_DISALLOW,
+            sitemapUrl: options.sitemapUrl,
+        }).generate()
+    }
 }

@@ -4,7 +4,8 @@
 // ============================================================
 
 import * as cheerio from 'cheerio'
-import type { AIReadabilityScore, AnalysisIssue, AnalyzerOptions } from '../types'
+import type { AIReadabilityScore, AnalysisContext, AnalysisIssue, AnalyzerOptions, ScoringDimension } from '../types'
+import { AI_CRAWLERS } from '../data/crawlers'
 
 const DEFAULT_OPTIONS: Required<AnalyzerOptions> = {
     checkAnswerPlacement: true,
@@ -13,7 +14,70 @@ const DEFAULT_OPTIONS: Required<AnalyzerOptions> = {
     checkEEAT: true,
     checkSnippability: true,
     checkSchema: true,
+    checkCrawlerAccessibility: true,
 }
+
+/**
+ * Fixed, published GEO scoring weights. No ML, no black box — every
+ * dimension's contribution to `overallScore` is a plain constant documented
+ * here and in docs/scoring.md. This is the canonical source other CrawlPod
+ * surfaces (crawlpod.com's scanner, the WordPress plugin) should align to;
+ * it's also published as `dist/scoring-weights.json` (see
+ * scripts/generate-scoring-weights-json.js) for surfaces that can't import
+ * this package directly. Weights sum to 1.0 — enforced by a test.
+ *
+ * Lives as a static on `ContentAnalyzer` (rather than a standalone barrel
+ * export) so the root export surface stays classes/functions-only.
+ */
+const SCORING_WEIGHTS: ScoringDimension[] = [
+    {
+        key: 'answerFrontLoading',
+        label: 'Answer placement',
+        weight: 0.20,
+        description: 'Whether a direct answer to the page\'s topic appears near the top, where AI systems weight content most heavily.',
+    },
+    {
+        key: 'eeatSignals',
+        label: 'Authority signals (E-E-A-T)',
+        weight: 0.20,
+        description: 'Author, organization, contact, and trust-signal markup — what separates "extractable" content from "citable" content.',
+    },
+    {
+        key: 'headingStructure',
+        label: 'Structure',
+        weight: 0.15,
+        description: 'A single H1 and a consistent, unskipped heading hierarchy, which is what makes a page machine-segmentable.',
+    },
+    {
+        key: 'schemaCoverage',
+        label: 'Structured data',
+        weight: 0.15,
+        description: 'Valid JSON-LD structured data, the most direct machine-readable signal a page can offer.',
+    },
+    {
+        key: 'factDensity',
+        label: 'Factual density',
+        weight: 0.10,
+        description: 'Concrete numbers, dates, and statistics per 100 words. The most heuristic of the checks, weighted accordingly.',
+    },
+    {
+        key: 'snippability',
+        label: 'Semantic clarity',
+        weight: 0.10,
+        description: 'Whether each section under a heading stands alone with enough context to be quoted or excerpted independently.',
+    },
+    {
+        key: 'crawlerAccessibility',
+        label: 'Crawler accessibility',
+        weight: 0.10,
+        description: 'Whether AI crawlers are actually allowed to fetch the page at all (meta robots, robots.txt, llms.txt) — a gate more than a differentiator, since a hard block already zeroes out every other dimension\'s value.',
+    },
+]
+
+const WEIGHTS = Object.fromEntries(SCORING_WEIGHTS.map((d) => [d.key, d.weight])) as Record<
+    keyof AIReadabilityScore['breakdown'],
+    number
+>
 
 /**
  * ContentAnalyzer
@@ -35,6 +99,8 @@ const DEFAULT_OPTIONS: Required<AnalyzerOptions> = {
  * ```
  */
 export class ContentAnalyzer {
+    static readonly SCORING_WEIGHTS = SCORING_WEIGHTS
+
     private options: Required<AnalyzerOptions>
 
     constructor(options: AnalyzerOptions = {}) {
@@ -43,8 +109,13 @@ export class ContentAnalyzer {
 
     /**
      * Analyze HTML content and return an AI readability score.
+     *
+     * @param context Optional site context (robots.txt content, llms.txt
+     * presence) that improves the crawlerAccessibility dimension. Without
+     * it, that dimension can only check the page's own meta robots tag —
+     * `ai-visibility audit <url>` and `audit --dir` both supply it.
      */
-    async analyze(html: string): Promise<AIReadabilityScore> {
+    async analyze(html: string, context: AnalysisContext = {}): Promise<AIReadabilityScore> {
         const $ = cheerio.load(html)
         const issues: AnalysisIssue[] = []
         const breakdown: AIReadabilityScore['breakdown'] = {
@@ -54,6 +125,7 @@ export class ContentAnalyzer {
             eeatSignals: 0,
             snippability: 0,
             schemaCoverage: 0,
+            crawlerAccessibility: 0,
         }
 
         if (this.options.checkAnswerPlacement) {
@@ -104,19 +176,18 @@ export class ContentAnalyzer {
             breakdown.schemaCoverage = 100
         }
 
-        // Weighted average (answer placement and schema are most important)
-        const weights = {
-            answerFrontLoading: 0.25,
-            factDensity: 0.15,
-            headingStructure: 0.15,
-            eeatSignals: 0.20,
-            snippability: 0.10,
-            schemaCoverage: 0.15,
+        if (this.options.checkCrawlerAccessibility) {
+            const result = this.checkCrawlerAccessibility($, context)
+            breakdown.crawlerAccessibility = result.score
+            issues.push(...result.issues)
+        } else {
+            breakdown.crawlerAccessibility = 100
         }
 
+        // Weighted average — fixed, published weights, see SCORING_WEIGHTS
         const overallScore = Math.round(
             Object.entries(breakdown).reduce((sum, [key, score]) => {
-                return sum + score * (weights[key as keyof typeof weights] ?? 0)
+                return sum + score * (WEIGHTS[key as keyof typeof WEIGHTS] ?? 0)
             }, 0)
         )
 
@@ -489,6 +560,61 @@ export class ContentAnalyzer {
         return { score, issues }
     }
 
+    private checkCrawlerAccessibility($: cheerio.CheerioAPI, context: AnalysisContext): { score: number; issues: AnalysisIssue[] } {
+        const issues: AnalysisIssue[] = []
+        let score = 100
+
+        // Meta robots noindex/none — always checkable from the HTML alone.
+        const metaRobots = $('meta[name="robots"]').attr('content')?.toLowerCase() ?? ''
+        const isNoindex = /\bnoindex\b/.test(metaRobots) || /\bnone\b/.test(metaRobots)
+
+        if (isNoindex) {
+            issues.push({
+                type: 'crawler-accessibility',
+                severity: 'high',
+                message: `<meta name="robots"> blocks indexing (content="${metaRobots}")`,
+                fix: 'Remove noindex/none from the robots meta tag if you want this page cited by AI models',
+            })
+            score -= 70
+        }
+
+        if (context.robotsTxt === undefined && context.hasLlmsTxt === undefined) {
+            issues.push({
+                type: 'crawler-accessibility',
+                severity: 'low',
+                message: 'robots.txt and llms.txt were not checked — run `ai-visibility audit <url>` for a full crawler-accessibility check',
+                fix: 'Use the CLI audit command against a live URL or build directory to check robots.txt/llms.txt as well as this page',
+            })
+            return { score: Math.max(0, score), issues }
+        }
+
+        if (context.robotsTxt) {
+            const blockedMajorBots = AI_CRAWLERS.filter((bot) => isBlockedInRobotsTxt(context.robotsTxt!, bot.name))
+            if (blockedMajorBots.length > 0) {
+                issues.push({
+                    type: 'crawler-accessibility',
+                    severity: 'high',
+                    message: `robots.txt blocks ${blockedMajorBots.length} known AI crawler(s): ${blockedMajorBots.map((b) => b.name).join(', ')}`,
+                    fix: 'If this is intentional (e.g. opting out of training bots), no action needed — otherwise update robots.txt to allow these crawlers',
+                })
+                score -= Math.min(40, blockedMajorBots.length * 5)
+            }
+        }
+
+        if (context.hasLlmsTxt) {
+            score = Math.min(100, score + 10)
+        } else if (context.hasLlmsTxt === false) {
+            issues.push({
+                type: 'crawler-accessibility',
+                severity: 'low',
+                message: 'No llms.txt found',
+                fix: 'Add an llms.txt file so AI models can find your key pages without crawling the whole site',
+            })
+        }
+
+        return { score: Math.max(0, Math.min(100, score)), issues }
+    }
+
     // ---- Recommendations ----
 
     private generateRecommendations(breakdown: AIReadabilityScore['breakdown']): string[] {
@@ -512,6 +638,9 @@ export class ContentAnalyzer {
         if (breakdown.schemaCoverage < 50) {
             recs.push('🔖 Add structured data: Use SchemaBuilder to add JSON-LD markup for AI understanding')
         }
+        if (breakdown.crawlerAccessibility < 70) {
+            recs.push('🤖 Check crawler access: Make sure your meta robots tag and robots.txt allow AI crawlers to fetch this page')
+        }
 
         if (recs.length === 0) {
             recs.push('✅ Great job! Your content is well-optimized for AI visibility')
@@ -519,4 +648,73 @@ export class ContentAnalyzer {
 
         return recs
     }
+}
+
+interface RobotsGroup {
+    agents: string[]
+    disallow: string[]
+    allow: string[]
+    /** Once a rule line has been seen, the next User-agent line starts a new group. */
+    rulesStarted: boolean
+}
+
+function parseRobotsGroups(robotsTxt: string): RobotsGroup[] {
+    const groups: RobotsGroup[] = []
+    let current: RobotsGroup | null = null
+
+    for (const raw of robotsTxt.split(/\r?\n/)) {
+        const line = raw.trim()
+
+        const uaMatch = line.match(/^user-agent\s*:\s*(.*)$/i)
+        if (uaMatch) {
+            const ua = uaMatch[1].trim().toLowerCase()
+            if (!current || current.rulesStarted) {
+                current = { agents: [], disallow: [], allow: [], rulesStarted: false }
+                groups.push(current)
+            }
+            current.agents.push(ua)
+            continue
+        }
+
+        if (!current) continue
+
+        const disallowMatch = line.match(/^disallow\s*:\s*(.*)$/i)
+        if (disallowMatch) {
+            current.disallow.push(disallowMatch[1].trim())
+            current.rulesStarted = true
+            continue
+        }
+
+        const allowMatch = line.match(/^allow\s*:\s*(.*)$/i)
+        if (allowMatch) {
+            current.allow.push(allowMatch[1].trim())
+            current.rulesStarted = true
+        }
+    }
+
+    return groups
+}
+
+/**
+ * True if robots.txt disallows the whole site (`Disallow: /`) for this
+ * bot. Uses the bot's own `User-agent:` group if one exists — a
+ * bot-specific group always takes precedence over the wildcard `*` group,
+ * per the robots.txt spec — and only falls back to `*` when no
+ * bot-specific group is present. Deliberately conservative: a bare
+ * `Disallow: /` alongside an `Allow: /` in the same group is treated as
+ * ambiguous/permissive, not blocked, to avoid false positives on
+ * legitimate configs this heuristic can't fully reason about.
+ */
+function isBlockedInRobotsTxt(robotsTxt: string, botName: string): boolean {
+    const groups = parseRobotsGroups(robotsTxt)
+    const name = botName.toLowerCase()
+
+    const specific = groups.find((g) => g.agents.includes(name))
+    const wildcard = groups.find((g) => g.agents.includes('*'))
+    const group = specific ?? wildcard
+    if (!group) return false
+
+    const hasFullDisallow = group.disallow.includes('/')
+    const hasFullAllow = group.allow.includes('/')
+    return hasFullDisallow && !hasFullAllow
 }

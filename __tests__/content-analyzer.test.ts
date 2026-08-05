@@ -5,6 +5,8 @@
 import { describe, it, expect } from 'vitest'
 import { ContentAnalyzer } from '../src/analyzer/content-analyzer'
 
+const SCORING_WEIGHTS = ContentAnalyzer.SCORING_WEIGHTS
+
 const analyzer = new ContentAnalyzer()
 
 const GOOD_HTML = `
@@ -98,7 +100,7 @@ describe('ContentAnalyzer', () => {
         }
     })
 
-    it('returns breakdown with all 6 dimensions', async () => {
+    it('returns breakdown with all 7 dimensions', async () => {
         const result = await analyzer.analyze(GOOD_HTML)
         expect(result.breakdown).toHaveProperty('answerFrontLoading')
         expect(result.breakdown).toHaveProperty('factDensity')
@@ -106,6 +108,7 @@ describe('ContentAnalyzer', () => {
         expect(result.breakdown).toHaveProperty('eeatSignals')
         expect(result.breakdown).toHaveProperty('snippability')
         expect(result.breakdown).toHaveProperty('schemaCoverage')
+        expect(result.breakdown).toHaveProperty('crawlerAccessibility')
     })
 
     it('detects heading level skip', async () => {
@@ -135,5 +138,64 @@ describe('ContentAnalyzer', () => {
             expect(score).toBeGreaterThanOrEqual(0)
             expect(score).toBeLessThanOrEqual(100)
         }
+    })
+})
+
+describe('SCORING_WEIGHTS', () => {
+    it('sums to 1.0', () => {
+        const total = SCORING_WEIGHTS.reduce((sum, d) => sum + d.weight, 0)
+        expect(total).toBeCloseTo(1, 5)
+    })
+
+    it('has one entry per breakdown dimension, each with a label and description', async () => {
+        const result = await analyzer.analyze(GOOD_HTML)
+        const breakdownKeys = Object.keys(result.breakdown).sort()
+        const weightKeys = SCORING_WEIGHTS.map((d) => d.key).sort()
+        expect(weightKeys).toEqual(breakdownKeys)
+        for (const dim of SCORING_WEIGHTS) {
+            expect(dim.label.length).toBeGreaterThan(0)
+            expect(dim.description.length).toBeGreaterThan(0)
+        }
+    })
+})
+
+describe('crawlerAccessibility dimension', () => {
+    it('penalizes a noindex meta robots tag', async () => {
+        const html = '<html><head><meta name="robots" content="noindex"></head><body><h1>T</h1><p>Some content here that is long enough.</p></body></html>'
+        const result = await analyzer.analyze(html)
+        expect(result.breakdown.crawlerAccessibility).toBeLessThan(50)
+        expect(result.issues.some((i) => i.type === 'crawler-accessibility' && i.severity === 'high')).toBe(true)
+    })
+
+    it('flags that robots.txt/llms.txt were not checked when no context is given', async () => {
+        const result = await analyzer.analyze(GOOD_HTML)
+        expect(result.issues.some((i) => i.type === 'crawler-accessibility' && i.message.includes('audit'))).toBe(true)
+    })
+
+    it('penalizes robots.txt blocking a known AI crawler', async () => {
+        const robotsTxt = 'User-agent: GPTBot\nDisallow: /\n'
+        const result = await analyzer.analyze(GOOD_HTML, { robotsTxt, hasLlmsTxt: true })
+        expect(result.issues.some((i) => i.type === 'crawler-accessibility' && i.message.includes('GPTBot'))).toBe(true)
+    })
+
+    it('does not flag a bot-specific Allow overriding a wildcard Disallow', async () => {
+        const robotsTxt = 'User-agent: *\nDisallow: /\n\nUser-agent: GPTBot\nAllow: /\n'
+        const result = await analyzer.analyze(GOOD_HTML, { robotsTxt, hasLlmsTxt: true })
+        expect(result.issues.some((i) => i.type === 'crawler-accessibility' && i.message.includes('GPTBot'))).toBe(false)
+    })
+
+    it('rewards a present llms.txt and flags a missing one when context says so', async () => {
+        const withLlms = await analyzer.analyze(GOOD_HTML, { robotsTxt: 'User-agent: *\nAllow: /\n', hasLlmsTxt: true })
+        const withoutLlms = await analyzer.analyze(GOOD_HTML, { robotsTxt: 'User-agent: *\nAllow: /\n', hasLlmsTxt: false })
+        expect(withLlms.breakdown.crawlerAccessibility).toBeGreaterThanOrEqual(withoutLlms.breakdown.crawlerAccessibility)
+        expect(withoutLlms.issues.some((i) => i.message.includes('No llms.txt'))).toBe(true)
+    })
+
+    it('can be disabled via checkCrawlerAccessibility: false', async () => {
+        const customAnalyzer = new ContentAnalyzer({ checkCrawlerAccessibility: false })
+        const html = '<html><head><meta name="robots" content="noindex"></head><body><h1>T</h1><p>Some content here that is long enough.</p></body></html>'
+        const result = await customAnalyzer.analyze(html)
+        expect(result.breakdown.crawlerAccessibility).toBe(100)
+        expect(result.issues.some((i) => i.type === 'crawler-accessibility')).toBe(false)
     })
 })

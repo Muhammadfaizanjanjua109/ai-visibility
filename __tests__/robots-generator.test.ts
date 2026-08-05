@@ -92,4 +92,16 @@ describe('RobotsGenerator', () => {
         const content = RobotsGenerator.allowAll()
         expect(content).not.toMatch(/^Disallow:/m)
     })
+
+    it('blockAll() blocks every known AI crawler and allows none', () => {
+        const content = RobotsGenerator.blockAll()
+        expect(content).toMatch(/User-agent: GPTBot[\s\S]*?Disallow: \//)
+        expect(content).toMatch(/User-agent: ClaudeBot[\s\S]*?Disallow: \//)
+        expect(content).not.toContain('# AI crawlers — explicitly allowed')
+    })
+
+    it('blockAll() still includes the sitemap when provided', () => {
+        const content = RobotsGenerator.blockAll({ sitemapUrl: 'https://example.com/sitemap.xml' })
+        expect(content).toContain('Sitemap: https://example.com/sitemap.xml')
+    })
 })
