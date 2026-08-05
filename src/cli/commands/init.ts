@@ -8,12 +8,8 @@ import fs from 'fs'
 import path from 'path'
 import { RobotsGenerator } from '../../generators/robots-generator'
 import { LLMSTextGenerator } from '../../generators/llms-generator'
-
-// Chalk is ESM-only in v5+, so we use a dynamic import
-async function getChalk() {
-    const { default: chalk } = await import('chalk')
-    return chalk
-}
+import { getChalk } from '../lib/chalk'
+import { printFooter } from '../lib/footer'
 
 interface FrameworkInfo {
     name: string
@@ -79,8 +75,9 @@ export function registerInit(program: Command): void {
         .option('--site-name <name>', 'Your site name')
         .option('--site-url <url>', 'Your site URL (e.g. https://myapp.com)')
         .option('--block-training', 'Block training bots (CCBot, GPTBot) while allowing search bots')
-        .action(async (options) => {
+        .action(async (options, command: Command) => {
             const chalk = await getChalk()
+            const quiet = Boolean(command.optsWithGlobals().quiet)
             const cwd = path.resolve(options.dir)
 
             console.log(chalk.bold.cyan('\n🤖 ai-visibility init\n'))
@@ -163,5 +160,6 @@ export function registerInit(program: Command): void {
             console.log(chalk.gray('   npx ai-visibility logs --summary\n'))
 
             console.log(chalk.bold.green('🚀 You\'re all set! Your site is now AI-visibility ready.\n'))
+            printFooter(chalk, quiet)
         })
 }

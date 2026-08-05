@@ -1,6 +1,7 @@
 // ============================================================
 // CLI: generate command
 // Generate robots.txt, llms.txt, or schema from CLI
+// Also registers top-level `robots`/`llms` aliases (see registerGenerate)
 // ============================================================
 
 import type { Command } from 'commander'
@@ -9,10 +10,85 @@ import path from 'path'
 import { RobotsGenerator } from '../../generators/robots-generator'
 import { LLMSTextGenerator } from '../../generators/llms-generator'
 import { SchemaBuilder } from '../../schema/schema-builder'
+import { getChalk } from '../lib/chalk'
+import { printFooter } from '../lib/footer'
 
-async function getChalk() {
-    const { default: chalk } = await import('chalk')
-    return chalk
+type RobotsPreset = 'allow-all' | 'block-training' | 'block-all'
+
+function robotsContentForPreset(preset: RobotsPreset, sitemapUrl?: string): string {
+    switch (preset) {
+        case 'block-training':
+            return RobotsGenerator.blockTraining({ sitemapUrl })
+        case 'block-all':
+            return RobotsGenerator.blockAll({ sitemapUrl })
+        default:
+            return RobotsGenerator.allowAll({ sitemapUrl })
+    }
+}
+
+async function runGenerateRobots(options: any, command: Command): Promise<void> {
+    const chalk = await getChalk()
+    const quiet = Boolean(command.optsWithGlobals().quiet)
+
+    // --block-training stays working for back-compat; --preset takes priority if both are set.
+    const preset: RobotsPreset = options.preset ?? (options.blockTraining ? 'block-training' : 'allow-all')
+    const content = robotsContentForPreset(preset, options.sitemap)
+
+    const outPath = path.resolve(options.out)
+    const dir = path.dirname(outPath)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+
+    fs.writeFileSync(outPath, content)
+    console.log(chalk.green(`✅ robots.txt generated (preset: ${preset}) → ${outPath}`))
+    console.log(chalk.gray('\nContent preview:'))
+    console.log(chalk.gray(content.split('\n').slice(0, 10).join('\n')))
+    printFooter(chalk, quiet)
+}
+
+async function runGenerateLlms(options: any, command: Command): Promise<void> {
+    const chalk = await getChalk()
+    const quiet = Boolean(command.optsWithGlobals().quiet)
+
+    const content = LLMSTextGenerator.minimal({
+        siteName: options.siteName,
+        description: options.description,
+        baseUrl: options.baseUrl,
+        pages: [
+            { url: '/', title: 'Home', priority: 'high' },
+            { url: '/about', title: 'About' },
+            { url: '/docs', title: 'Documentation' },
+        ],
+    })
+
+    const outPath = path.resolve(options.out)
+    const dir = path.dirname(outPath)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+
+    fs.writeFileSync(outPath, content)
+    console.log(chalk.green(`✅ llms.txt generated → ${outPath}`))
+    console.log(chalk.gray('\nContent:'))
+    console.log(chalk.gray(content))
+    printFooter(chalk, quiet)
+}
+
+function addRobotsOptions(cmd: Command): Command {
+    return cmd
+        .description('Generate robots.txt with AI crawler rules')
+        .option('--out <path>', 'Output path', './public/robots.txt')
+        .option('--preset <preset>', 'allow-all | block-training | block-all')
+        .option('--block-training', 'Shorthand for --preset block-training (deprecated, kept for back-compat)')
+        .option('--sitemap <url>', 'Sitemap URL to include')
+        .action(runGenerateRobots)
+}
+
+function addLlmsOptions(cmd: Command): Command {
+    return cmd
+        .description('Generate llms.txt for AI model indexing')
+        .option('--out <path>', 'Output path', './public/llms.txt')
+        .option('--site-name <name>', 'Site name', 'My Site')
+        .option('--description <desc>', 'Site description', 'A website')
+        .option('--base-url <url>', 'Base URL (e.g. https://mysite.com)')
+        .action(runGenerateLlms)
 }
 
 export function registerGenerate(program: Command): void {
@@ -20,61 +96,13 @@ export function registerGenerate(program: Command): void {
         .command('generate')
         .description('Generate AI visibility config files')
 
-    // generate robots
-    generate
-        .command('robots')
-        .description('Generate robots.txt with AI crawler rules')
-        .option('--out <path>', 'Output path', './public/robots.txt')
-        .option('--block-training', 'Block training bots (CCBot, GPTBot)')
-        .option('--sitemap <url>', 'Sitemap URL to include')
-        .action(async (options) => {
-            const chalk = await getChalk()
+    addRobotsOptions(generate.command('robots'))
+    addLlmsOptions(generate.command('llms'))
 
-            const content = options.blockTraining
-                ? RobotsGenerator.blockTraining({ sitemapUrl: options.sitemap })
-                : RobotsGenerator.allowAll({ sitemapUrl: options.sitemap })
-
-            const outPath = path.resolve(options.out)
-            const dir = path.dirname(outPath)
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-
-            fs.writeFileSync(outPath, content)
-            console.log(chalk.green(`✅ robots.txt generated → ${outPath}`))
-            console.log(chalk.gray('\nContent preview:'))
-            console.log(chalk.gray(content.split('\n').slice(0, 10).join('\n')))
-        })
-
-    // generate llms
-    generate
-        .command('llms')
-        .description('Generate llms.txt for AI model indexing')
-        .option('--out <path>', 'Output path', './public/llms.txt')
-        .option('--site-name <name>', 'Site name', 'My Site')
-        .option('--description <desc>', 'Site description', 'A website')
-        .option('--base-url <url>', 'Base URL (e.g. https://mysite.com)')
-        .action(async (options) => {
-            const chalk = await getChalk()
-
-            const content = LLMSTextGenerator.minimal({
-                siteName: options.siteName,
-                description: options.description,
-                baseUrl: options.baseUrl,
-                pages: [
-                    { url: '/', title: 'Home', priority: 'high' },
-                    { url: '/about', title: 'About' },
-                    { url: '/docs', title: 'Documentation' },
-                ],
-            })
-
-            const outPath = path.resolve(options.out)
-            const dir = path.dirname(outPath)
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-
-            fs.writeFileSync(outPath, content)
-            console.log(chalk.green(`✅ llms.txt generated → ${outPath}`))
-            console.log(chalk.gray('\nContent:'))
-            console.log(chalk.gray(content))
-        })
+    // Top-level aliases: `ai-visibility robots` / `ai-visibility llms`,
+    // same generators, flatter ergonomics for the common case.
+    addRobotsOptions(program.command('robots'))
+    addLlmsOptions(program.command('llms'))
 
     // generate schema
     generate
@@ -85,8 +113,9 @@ export function registerGenerate(program: Command): void {
         .option('--name <name>', 'Name/headline')
         .option('--price <price>', 'Price (for product schema)')
         .option('--author <author>', 'Author name')
-        .action(async (options) => {
+        .action(async (options, command: Command) => {
             const chalk = await getChalk()
+            const quiet = Boolean(command.optsWithGlobals().quiet)
             let schema: Record<string, unknown>
 
             switch (options.type) {
@@ -131,5 +160,6 @@ export function registerGenerate(program: Command): void {
                 console.log(chalk.bold.cyan('\n📋 JSON-LD Schema:\n'))
                 console.log(scriptTag)
             }
+            printFooter(chalk, quiet)
         })
 }

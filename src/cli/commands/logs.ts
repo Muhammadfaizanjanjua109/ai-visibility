@@ -5,11 +5,8 @@
 
 import type { Command } from 'commander'
 import { AIVisitorLogger } from '../../monitor/visitor-logger'
-
-async function getChalk() {
-    const { default: chalk } = await import('chalk')
-    return chalk
-}
+import { getChalk } from '../lib/chalk'
+import { printFooter } from '../lib/footer'
 
 export function registerLogs(program: Command): void {
     program
@@ -21,8 +18,9 @@ export function registerLogs(program: Command): void {
         .option('--summary', 'Show summary statistics only')
         .option('--log-file <path>', 'Path to log file', './logs/ai-crawler.json')
         .option('--json', 'Output as JSON')
-        .action(async (options) => {
+        .action(async (options, command: Command) => {
             const chalk = await getChalk()
+            const quiet = Boolean(command.optsWithGlobals().quiet)
 
             const logger = new AIVisitorLogger({
                 storage: 'file',
@@ -45,6 +43,7 @@ export function registerLogs(program: Command): void {
                 if (entries.length === 0) {
                     console.log(chalk.yellow('No AI crawler visits recorded yet.'))
                     console.log(chalk.gray('Make sure you have the AIVisitorLogger middleware running.\n'))
+                    printFooter(chalk, quiet)
                     return
                 }
 
@@ -57,6 +56,7 @@ export function registerLogs(program: Command): void {
                     console.log()
                 }
 
+                printFooter(chalk, quiet)
                 return
             }
 
@@ -80,6 +80,7 @@ export function registerLogs(program: Command): void {
                     console.log(chalk.gray(`No visits from ${options.crawler} in the last ${days} days.`))
                 }
                 console.log()
+                printFooter(chalk, quiet)
                 return
             }
 
@@ -107,5 +108,6 @@ export function registerLogs(program: Command): void {
             }
 
             console.log()
+            printFooter(chalk, quiet)
         })
 }

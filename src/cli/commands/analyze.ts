@@ -7,58 +7,10 @@ import type { Command } from 'commander'
 import fs from 'fs'
 import path from 'path'
 import { ContentAnalyzer } from '../../analyzer/content-analyzer'
-
-async function getChalk() {
-    const { default: chalk } = await import('chalk')
-    return chalk
-}
-
-const SUPPORTED_EXTENSIONS = ['.html', '.htm', '.md', '.mdx']
-
-function findFiles(dir: string, extensions: string[]): string[] {
-    const results: string[] = []
-
-    function walk(current: string) {
-        if (!fs.existsSync(current)) return
-        const entries = fs.readdirSync(current, { withFileTypes: true })
-        for (const entry of entries) {
-            const fullPath = path.join(current, entry.name)
-            if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
-                walk(fullPath)
-            } else if (entry.isFile() && extensions.includes(path.extname(entry.name).toLowerCase())) {
-                results.push(fullPath)
-            }
-        }
-    }
-
-    walk(dir)
-    return results
-}
-
-function markdownToHTML(md: string): string {
-    // Very basic Markdown → HTML conversion for analysis purposes
-    return md
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-        .replace(/\n\n(.+)/g, '\n\n<p>$1</p>')
-}
-
-function scoreColor(score: number, chalk: Awaited<ReturnType<typeof getChalk>>): string {
-    if (score >= 80) return chalk.green(`${score}/100`)
-    if (score >= 60) return chalk.yellow(`${score}/100`)
-    return chalk.red(`${score}/100`)
-}
-
-function severityIcon(severity: string): string {
-    if (severity === 'high') return '🔴'
-    if (severity === 'medium') return '🟡'
-    return '🔵'
-}
+import { getChalk } from '../lib/chalk'
+import { findFiles, markdownToHTML, SUPPORTED_EXTENSIONS } from '../lib/scan'
+import { scoreColor, severityIcon } from '../lib/format'
+import { printFooter } from '../lib/footer'
 
 export function registerAnalyze(program: Command): void {
     program
@@ -68,8 +20,9 @@ export function registerAnalyze(program: Command): void {
         .option('--file <path>', 'Analyze a single file')
         .option('--json', 'Output results as JSON')
         .option('--min-score <n>', 'Only show files below this score', '101')
-        .action(async (options) => {
+        .action(async (options, command: Command) => {
             const chalk = await getChalk()
+            const quiet = Boolean(command.optsWithGlobals().quiet)
             const analyzer = new ContentAnalyzer()
 
             let files: string[] = []
@@ -132,7 +85,7 @@ export function registerAnalyze(program: Command): void {
 
                 // Breakdown
                 const b = result.breakdown
-                console.log(chalk.gray(`   Answer placement: ${b.answerFrontLoading}  Fact density: ${b.factDensity}  Headings: ${b.headingStructure}  E-E-A-T: ${b.eeatSignals}  Schema: ${b.schemaCoverage}`))
+                console.log(chalk.gray(`   Answer placement: ${b.answerFrontLoading}  Fact density: ${b.factDensity}  Headings: ${b.headingStructure}  E-E-A-T: ${b.eeatSignals}  Schema: ${b.schemaCoverage}  Crawler access: ${b.crawlerAccessibility}`))
 
                 // Issues
                 for (const issue of result.issues.slice(0, 3)) {
@@ -162,5 +115,6 @@ export function registerAnalyze(program: Command): void {
             console.log(`${chalk.bold('Average score:')} ${scoreColor(avg, chalk)}`)
             console.log(`${chalk.bold('Passing (≥80):')} ${chalk.green(passing)} / ${results.length}`)
             console.log()
+            printFooter(chalk, quiet)
         })
 }
