@@ -9,16 +9,20 @@ import { registerAnalyze } from './commands/analyze'
 import { registerGenerate } from './commands/generate'
 import { registerLogs } from './commands/logs'
 import { registerAudit } from './commands/audit'
+import { registerDiscover } from './commands/discover'
+import { registerMeasure } from './commands/measure'
 
 const program = new Command()
 
 program
     .name('ai-visibility')
     .description('Make your web app citable by AI models')
-    .version('0.6.0')
+    .version('0.7.0')
     .option('-q, --quiet', 'suppress the CrawlPod footer and other non-essential output')
 
 registerAudit(program)
+registerDiscover(program)
+registerMeasure(program)
 registerInit(program)
 registerAnalyze(program)
 registerGenerate(program)

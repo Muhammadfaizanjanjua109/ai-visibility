@@ -25,6 +25,7 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 | Help AI understand my content | Schema injection | Auto-generated JSON-LD markup (11 schema types) |
 | Know if I'm doing it right | Content analyzer / `npx ai-visibility audit <url>` | AI Readiness score across 6 categories + specific fixes |
 | Gate CI on AI-readiness | `npx ai-visibility lint` | Non-zero exit code below a threshold |
+| Know if AI engines actually mention my brand | `npx ai-visibility measure` (BYOK) | Brand-vs-competitor visibility with confidence intervals |
 | Track AI crawler visits | Visitor logger | Log of all AI crawler activity |
 | Monitor AI activity visually | Free Dashboard | Real-time analytics & insights |
 | Get started quickly | CLI tool | 1 command to set up everything |
@@ -82,6 +83,9 @@ npx ai-visibility lint                     # shorthand: audit --dir . --fail-und
 npx ai-visibility robots --preset block-training   # allow-all | block-training | block-all
 npx ai-visibility llms --site-name "My Site"
 
+npx ai-visibility discover --brand "Acme CRM" --category "CRM software" --competitors "HubSpot,Pipedrive"
+npx ai-visibility measure --brand "Acme CRM" --category "CRM software" --competitors "HubSpot,Pipedrive" --runs 3
+
 npx ai-visibility init                     # scaffold robots.txt, llms.txt, framework-specific instructions
 npx ai-visibility logs --summary           # if you're using AIVisitorLogger
 ```
@@ -95,6 +99,15 @@ a one-line, dimmed CrawlPod footer — pass `--quiet`/`-q` to suppress it.
 See [docs/scoring.md](./docs/scoring.md) for what `audit`/`lint` actually
 score and why those weights, and [docs/api-reference.md](./docs/api-reference.md)
 for the full flag reference.
+
+`discover` generates AI-search prompt clusters for a brand/category
+(template-based, no API keys needed). `measure` queries your own configured
+AI engines (OpenAI, Perplexity, Gemini, Anthropic — BYOK, keys never stored
+or proxied) with those prompts, repeated `--runs` times each for statistical
+rigor, and reports brand-vs-competitor visibility with confidence intervals.
+Set `CRAWLPOD_OPENAI_KEY`/`CRAWLPOD_PERPLEXITY_KEY`/`CRAWLPOD_GEMINI_KEY`/`CRAWLPOD_ANTHROPIC_KEY`
+or add a `crawlpod.config.js` — see [docs/measurement.md](./docs/measurement.md)
+for the full config precedence, prompt templates, and statistics formulas.
 
 ---
 
@@ -110,6 +123,9 @@ for the full flag reference.
 | `ai-visibility/generators` | `RobotsGenerator`, `LLMSTextGenerator` | **none** | ✅ |
 | `ai-visibility/express` | `createAIMiddleware`, `optimizeResponseForAI`, `AIVisitorLogger` | `express` (optional peer) | ❌ Node only |
 | `ai-visibility/next` | `createNextMiddleware` (+ `detectAndOptimize`, re-exported for convenience) | `next` (optional peer) | ✅ |
+| `ai-visibility/engines` | `OpenAIAdapter`, `PerplexityAdapter`, `GeminiAdapter`, `AnthropicAdapter` (BYOK) | **none** | ✅ |
+| `ai-visibility/prompts` | `PromptDiscovery` | **none** | ✅ |
+| `ai-visibility/measure` | `MeasurementEngine` | **none** | ✅ |
 
 ¹ Every `SchemaBuilder` method is dependency-free except `fromHTML()`, which lazily loads `cheerio` on first call — importing `ai-visibility/schema` never pulls it in unless you actually call `fromHTML()`.
 
@@ -124,6 +140,11 @@ import { createAIMiddleware, AIVisitorLogger } from 'ai-visibility/express'
 
 // Next.js specifically (edge-safe):
 import { createNextMiddleware } from 'ai-visibility/next'
+
+// BYOK AI engine querying + measurement (see docs/measurement.md):
+import { OpenAIAdapter } from 'ai-visibility/engines'
+import { PromptDiscovery } from 'ai-visibility/prompts'
+import { MeasurementEngine } from 'ai-visibility/measure'
 ```
 
 ---
@@ -168,6 +189,15 @@ Every export, one line each — see [crawlpod.com/docs/api-reference](https://cr
 
 **`ai-visibility/next`** (edge-safe, `next` optional peer):
 - `createNextMiddleware()` — `proxy.ts`/`middleware.ts` helper; `onDetect` may be `async`, safely kept alive via `event.waitUntil()`
+
+**`ai-visibility/engines`** (zero dependencies, native `fetch` only — BYOK, keys never stored or proxied):
+- `OpenAIAdapter`, `PerplexityAdapter`, `GeminiAdapter`, `AnthropicAdapter` — each implements `EngineAdapter.query(prompt, options?)`, normalizing that provider's response (text, extracted citations, latency) into a common `EngineResponse` shape
+
+**`ai-visibility/prompts`** (zero dependencies):
+- `PromptDiscovery` — template-based AI-search prompt generation for a brand/category (`discovery`/`comparison`/`commercial`/`problem`/`recommendation` clusters), no AI call needed
+
+**`ai-visibility/measure`** (zero dependencies):
+- `MeasurementEngine` — queries configured engines with repeated sampling and reports brand-vs-competitor visibility (mention rate, recommend rate, citation rate) with 95% confidence intervals — see [docs/measurement.md](./docs/measurement.md)
 
 **Root barrel only** (also re-exports everything above):
 - `ContentAnalyzer` — the AI Readiness Engine. `audit()` scores HTML across 6 weighted categories (crawlability, structure, entity signals, citation readiness, content, authority) with structured, severity-ranked issues; fixed published weights via `ContentAnalyzer.CATEGORY_WEIGHTS` — see [docs/scoring.md](./docs/scoring.md). The original flat 7-dimension `analyze()` (`ContentAnalyzer.SCORING_WEIGHTS`) is still exported, unchanged, for existing consumers.

@@ -393,6 +393,147 @@ export interface LoggerConfig {
     maxMemoryEntries?: number
 }
 
+// ---- AI Engine Adapters (v0.7.0, BYOK) ----
+
+export interface QueryOptions {
+    /** Overrides the adapter's default model. */
+    model?: string
+    /** @default 0.7 */
+    temperature?: number
+    /** @default 1024 */
+    maxTokens?: number
+}
+
+/**
+ * Normalized response from any `EngineAdapter`. `brands` is always `[]` at
+ * this layer — a bare `query(prompt)` call has no brand list to check
+ * against. Brand/competitor detection happens in `MeasurementEngine`, which
+ * does have that context (see docs/measurement.md).
+ */
+export interface EngineResponse {
+    engine: string
+    model: string
+    prompt: string
+    response: string
+    /** URLs mentioned/cited in the response, best-effort per engine (see docs/measurement.md). */
+    citations: string[]
+    brands: string[]
+    timestamp: number
+    latencyMs: number
+}
+
+export interface EngineAdapter {
+    name: string
+    slug: 'openai' | 'perplexity' | 'gemini' | 'anthropic'
+    query(prompt: string, options?: QueryOptions): Promise<EngineResponse>
+}
+
+/** One engine's entry in `crawlpod.config.js`'s `engines` object. */
+export interface EngineConfigEntry {
+    apiKey?: string
+    model?: string
+    temperature?: number
+    maxTokens?: number
+}
+
+/** Shape of the optional `crawlpod.config.js` the CLI loads from the current working directory. */
+export interface CrawlpodConfigFile {
+    engines?: Partial<Record<EngineAdapter['slug'], EngineConfigEntry>>
+}
+
+// ---- Prompt Discovery (v0.7.0) ----
+
+export type PromptClusterType = 'discovery' | 'comparison' | 'commercial' | 'problem' | 'recommendation'
+
+export interface DiscoveryConfig {
+    brand: string
+    category: string
+    competitors?: string[]
+    /** @default 'en-US' */
+    locale?: string
+}
+
+export interface PromptCluster {
+    type: PromptClusterType
+    prompts: string[]
+}
+
+// ---- Measurement Engine (v0.7.0) ----
+
+export interface MeasureConfig {
+    brand: string
+    /** From `PromptDiscovery.discover()`, or custom. */
+    prompts: string[]
+    engines: EngineAdapter[]
+    /** Repetitions per prompt per engine. @default 3, max 10 */
+    runs?: number
+    competitors?: string[]
+}
+
+export interface RunResult {
+    engine: string
+    run: number
+    mentioned: boolean
+    recommended: boolean
+    /** 1-indexed order of first mention among all brands detected in the response; null if not mentioned. */
+    position: number | null
+    citedUrls: string[]
+    competitorsMentioned: string[]
+    rawResponse: string
+}
+
+export interface PromptResult {
+    prompt: string
+    cluster: string
+    runs: RunResult[]
+    aggregated: {
+        mentionRate: number
+        recommendRate: number
+        variance: number
+    }
+}
+
+export interface BrandVisibility {
+    /** 0-1: how often the brand appears in responses. */
+    mentionRate: number
+    /** 0-1: how often the brand appears in a positive-recommendation context. */
+    recommendRate: number
+    /** Average 1-indexed position when mentioned (lower = more prominent). */
+    averagePosition: number
+    /** 0-1: how often a URL from the brand's domain is cited. */
+    citationRate: number
+    /** Statistical variance of per-run mention scores (0/1). */
+    variance: number
+    /** 95% confidence interval half-width: 1.96 * sqrt(variance / sampleSize). */
+    confidence: number
+    sampleSize: number
+}
+
+export interface EngineVisibility {
+    engine: string
+    mentionRate: number
+    recommendRate: number
+    citationRate: number
+    variance: number
+}
+
+export interface MeasurementReport {
+    brand: string
+    timestamp: number
+    summary: BrandVisibility
+    competitors: Record<string, BrandVisibility>
+    perEngine: Record<string, EngineVisibility>
+    perPrompt: PromptResult[]
+    stats: {
+        totalQueries: number
+        totalRuns: number
+        enginesUsed: string[]
+        durationMs: number
+        /** Count of runs where the underlying engine call failed (logged, then skipped — not retried). */
+        failedRuns: number
+    }
+}
+
 // ---- Express augmentation ----
 declare global {
     namespace Express {

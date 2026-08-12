@@ -1,6 +1,6 @@
 {
   "name": "ai-visibility",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js or Next.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -66,6 +66,36 @@
         "default": "./dist/next.js"
       }
     },
+    "./engines": {
+      "import": {
+        "types": "./dist/engines.d.mts",
+        "default": "./dist/engines.mjs"
+      },
+      "require": {
+        "types": "./dist/engines.d.ts",
+        "default": "./dist/engines.js"
+      }
+    },
+    "./prompts": {
+      "import": {
+        "types": "./dist/prompts.d.mts",
+        "default": "./dist/prompts.mjs"
+      },
+      "require": {
+        "types": "./dist/prompts.d.ts",
+        "default": "./dist/prompts.js"
+      }
+    },
+    "./measure": {
+      "import": {
+        "types": "./dist/measure.d.mts",
+        "default": "./dist/measure.mjs"
+      },
+      "require": {
+        "types": "./dist/measure.d.ts",
+        "default": "./dist/measure.js"
+      }
+    },
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -74,7 +104,10 @@
       "schema": ["./dist/schema.d.ts"],
       "generators": ["./dist/generators.d.ts"],
       "express": ["./dist/express.d.ts"],
-      "next": ["./dist/next.d.ts"]
+      "next": ["./dist/next.d.ts"],
+      "engines": ["./dist/engines.d.ts"],
+      "prompts": ["./dist/prompts.d.ts"],
+      "measure": ["./dist/measure.d.ts"]
     }
   },
   "bin": {

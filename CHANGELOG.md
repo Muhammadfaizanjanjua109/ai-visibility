@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-08-12
+
+Minor, not patch: three new subpath exports (`ai-visibility/engines`,
+`/prompts`, `/measure`) and two new CLI commands (`discover`, `measure`) —
+all additive, nothing existing changed.
+
+Theme: "Measure What Matters." v0.6.0's AI Readiness Engine is entirely
+static analysis — it can tell you a page is structurally easy for an AI
+system to cite, but not whether AI systems actually *do* cite or recommend
+your brand. v0.7.0 adds that: BYOK adapters to query OpenAI, Perplexity,
+Gemini, and Anthropic directly (keys never stored or proxied), template-based
+prompt generation for a brand/category, and a measurement engine that
+queries with repeated sampling and reports mention rate, recommend rate,
+and citation rate — brand vs. competitors, overall and per-engine — each
+with a 95% confidence interval, because a single AI response is not a
+reliable measurement. See [docs/measurement.md](./docs/measurement.md) for
+the full config precedence, prompt templates, and statistics formulas.
+
+### Added
+
+- **`ai-visibility/engines`** — `OpenAIAdapter`, `PerplexityAdapter`, `GeminiAdapter`, `AnthropicAdapter`, each implementing `EngineAdapter.query(prompt, options?)` against that provider's real API (native `fetch`, zero dependencies) and normalizing the response into a common `EngineResponse` (text, extracted citations, latency, timestamp).
+- **`ai-visibility/prompts`** — `PromptDiscovery.discover({ brand, category, competitors? })`: template-based generation of `discovery`/`comparison`/`commercial`/`problem`/`recommendation` prompt clusters (26 prompts for a typical 2-competitor brand), no AI call needed to generate the prompts themselves.
+- **`ai-visibility/measure`** — `MeasurementEngine.measure(config)`: runs every configured engine against a prompt list `runs` times each (default 3, max 10), sequentially per engine with a 1s delay between calls to the same engine, and aggregates into a `MeasurementReport` — brand vs. competitor `BrandVisibility` (mentionRate, recommendRate, averagePosition, citationRate, variance, confidence), a per-engine breakdown, and per-prompt results. A failed call is logged and counted in `stats.failedRuns`, never fabricated as a data point.
+- **`discover` CLI command** — prints prompt clusters for a brand/category; `--json` for machine-readable output. No API keys needed.
+- **`measure` CLI command** — runs `discover` + the Measurement Engine against your configured engines and prints a visibility report (overall + recommendation-rate bars with confidence intervals, per-engine mention rates, sample size/duration). Resolves engine API keys from `crawlpod.config.js` and/or `CRAWLPOD_{OPENAI,PERPLEXITY,GEMINI,ANTHROPIC}_KEY` env vars; throws a clear, actionable error if none are configured.
+
+### Test coverage
+
+219 tests (up from 167). New: `engine-adapters.test.ts` (per-adapter request shape, response normalization, citation extraction, error handling — `global.fetch` stubbed, no real network calls), `prompt-discovery.test.ts`, `brand-detection.test.ts` (mention/position/recommend/citation heuristics), `measurement-engine.test.ts` (statistics formulas, failed-run handling, cluster labeling), `cli-engine-config.test.ts` (env var + config file precedence), `cli-discover-format.test.ts`, `cli-measure-format.test.ts`, plus 3 new zero-external-static-import checks for the new subpaths in `zero-deps.test.ts`.
+
 ## [0.6.0] - 2026-08-12
 
 Minor, not patch: a new `ContentAnalyzer.audit()` method, a new

@@ -10,6 +10,9 @@ export default defineConfig([
             generators: 'src/entrypoints/generators.ts',
             express: 'src/entrypoints/express.ts',
             next: 'src/entrypoints/next.ts',
+            engines: 'src/entrypoints/engines.ts',
+            prompts: 'src/entrypoints/prompts.ts',
+            measure: 'src/entrypoints/measure.ts',
             // Internal-only build artifact, not part of package.json's
             // exports map — see src/entrypoints/scoring-weights-internal.ts
             'scoring-weights-internal': 'src/entrypoints/scoring-weights-internal.ts',

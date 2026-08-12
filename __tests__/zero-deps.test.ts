@@ -88,4 +88,19 @@ describe('zero runtime dependencies (edge-safe subpaths)', () => {
         const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/scoring-weights-internal.ts'))
         expect(external).toEqual([])
     })
+
+    it('ai-visibility/engines has no static external imports (native fetch only)', () => {
+        const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/engines.ts'))
+        expect(external).toEqual([])
+    })
+
+    it('ai-visibility/prompts has no static external imports', () => {
+        const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/prompts.ts'))
+        expect(external).toEqual([])
+    })
+
+    it('ai-visibility/measure has no static external imports', () => {
+        const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/measure.ts'))
+        expect(external).toEqual([])
+    })
 })
