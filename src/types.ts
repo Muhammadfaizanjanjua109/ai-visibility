@@ -252,12 +252,27 @@ export interface AnalyzerOptions {
  * that dimension can only check the page's own <meta name="robots"> tag —
  * passing robots.txt content and llms.txt presence (as `audit <url>` and
  * `audit --dir` both do) lets it check AI-crawler-specific rules too.
+ *
+ * Also consumed by the AI Readiness Engine (`ContentAnalyzer.audit()`) —
+ * the additional optional fields below feed CRAWLABILITY checks that need
+ * more than the page's own HTML (llms.txt content, ai.txt/sitemap
+ * presence, response time). All are best-effort/optional: `undefined`
+ * means "not checked", never "checked and absent" — the checks that use
+ * them treat `undefined` as neutral (no penalty) rather than a failure.
  */
 export interface AnalysisContext {
     /** Raw robots.txt content for the site being analyzed, if known. */
     robotsTxt?: string
     /** Whether an llms.txt file was found for the site being analyzed. */
     hasLlmsTxt?: boolean
+    /** Raw llms.txt content, if fetched — enables a validity check beyond mere presence. */
+    llmsTxtContent?: string
+    /** Whether an ai.txt file was found for the site being analyzed. */
+    hasAiTxt?: boolean
+    /** Whether a sitemap was found (sitemap.xml, or a `Sitemap:` line in robots.txt). */
+    hasSitemap?: boolean
+    /** Time in milliseconds the page took to respond, if the page was fetched live. */
+    responseTimeMs?: number
 }
 
 /** One entry of the published, fixed GEO scoring weights (see `SCORING_WEIGHTS`). */
@@ -266,6 +281,80 @@ export interface ScoringDimension {
     label: string
     weight: number
     description: string
+}
+
+// ---- AI Readiness Engine (v0.6.0) ----
+
+/** The six top-level AI Readiness categories. See `CATEGORY_WEIGHTS` for weights/descriptions. */
+export type AuditCategoryKey =
+    | 'crawlability'
+    | 'structure'
+    | 'entitySignals'
+    | 'citationReadiness'
+    | 'content'
+    | 'authority'
+
+/** One entry of the published, fixed AI Readiness category weights (see `CATEGORY_WEIGHTS`). */
+export interface AuditCategoryWeight {
+    key: AuditCategoryKey
+    label: string
+    weight: number
+    description: string
+}
+
+export type AuditSeverity = 'critical' | 'warning' | 'suggestion'
+
+/**
+ * A single failed (or partially failed) check, surfaced to explain *why* a
+ * score is what it is. `score_impact` is how many of the check's own 0-100
+ * points were lost (not category- or overall-weighted) — a rough "how bad
+ * is this one thing" number for sorting/display.
+ */
+export interface AuditIssue {
+    id: string
+    category: AuditCategoryKey
+    severity: AuditSeverity
+    title: string
+    description: string
+    impact: string
+    score_impact: number
+}
+
+/** One check's 0-100 subscore within a category. */
+export interface AuditCheckResult {
+    id: string
+    label: string
+    score: number
+}
+
+export interface CategoryResult {
+    key: AuditCategoryKey
+    label: string
+    weight: number
+    /** Equal-weighted average of this category's check scores. */
+    score: number
+    checks: AuditCheckResult[]
+}
+
+/**
+ * Result of `ContentAnalyzer.audit()` — the AI Readiness Engine. Replaces
+ * the flat 7-dimension `AIReadabilityScore` with six weighted categories,
+ * each broken into named checks, plus a structured issue list.
+ *
+ * `score` and `dimensions` are kept for backward compatibility with
+ * consumers of the old `AIReadabilityScore` shape (`score` mirrors
+ * `overall`; `dimensions` is derived from the new checks — see
+ * docs/scoring.md for the mapping). Both are deprecated: accessing either
+ * logs a one-time `console.warn` pointing at `overall`/`categories`.
+ */
+export interface AuditResult {
+    overall: number
+    categories: Record<AuditCategoryKey, CategoryResult>
+    issues: AuditIssue[]
+    /** @deprecated Use `overall` instead. */
+    score: number
+    /** @deprecated Use `categories` instead. */
+    dimensions: Record<string, number>
 }
 
 // ---- Monitor ----

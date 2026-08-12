@@ -53,4 +53,11 @@ export type {
     LoggerConfig,
     AnalysisIssue,
     BotStatsSerialized,
+    AuditCategoryKey,
+    AuditCategoryWeight,
+    AuditSeverity,
+    AuditIssue,
+    AuditCheckResult,
+    CategoryResult,
+    AuditResult,
 } from './types'

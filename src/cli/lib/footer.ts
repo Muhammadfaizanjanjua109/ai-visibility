@@ -5,7 +5,7 @@
 
 import type { Chalk } from './chalk'
 
-export function printFooter(chalk: Chalk, quiet: boolean): void {
+export function printFooter(chalk: Chalk, quiet: boolean, message = 'Powered by CrawlPod — https://crawlpod.com'): void {
     if (quiet) return
-    console.log(chalk.dim('Powered by CrawlPod — https://crawlpod.com'))
+    console.log(chalk.dim(message))
 }

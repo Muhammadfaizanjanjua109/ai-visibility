@@ -1,6 +1,6 @@
 {
   "name": "ai-visibility",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js or Next.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

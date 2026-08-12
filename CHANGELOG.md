@@ -4,6 +4,46 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-08-12
+
+Minor, not patch: a new `ContentAnalyzer.audit()` method, a new
+`AuditResult`/`AuditIssue`/`CategoryResult`/`AuditCategoryKey` type family,
+a restructured `audit`/`lint` CLI output, and `scoring-weights.json`
+schemaVersion 2 — all additive. `ContentAnalyzer.analyze()`,
+`AIReadabilityScore`, and `ContentAnalyzer.SCORING_WEIGHTS` (the v0.5.0
+flat 7-dimension engine) are unchanged and still exported; nothing existing
+was removed or had its signature changed.
+
+Theme: "Lighthouse for AI Search." The flat GEO score from v0.5.0 told you
+*a* number; it didn't tell you *why*, or which of several very different
+failure modes (can't be crawled vs. can't be resolved to an entity vs.
+nothing worth citing) was dragging it down. `audit()` replaces the single
+`overallScore` with six weighted categories — crawlability, structure,
+entity signals, citation readiness, content, authority — each made of
+named checks that produce a 0-100 subscore and, on failure, a structured
+`AuditIssue` (`critical`/`warning`/`suggestion`, with a title, description,
+impact, and `score_impact`). See `docs/scoring.md`.
+
+### Added
+
+- **`ContentAnalyzer.audit(html, context?)`** — the AI Readiness Engine. Returns an `AuditResult`: `overall` (0-100), `categories` (six `CategoryResult`s, each with its own `score` and a `checks[]` breakdown), and `issues` (every failed check, sorted critical → warning → suggestion). 30 checks total across the six categories — see `docs/scoring.md` for the full list and what each one looks for.
+- **`ContentAnalyzer.CATEGORY_WEIGHTS`** — the fixed, published category weight table (crawlability/structure/entitySignals 0.20 each, citationReadiness/content 0.15 each, authority 0.10; sums to 1.0, enforced by a test), alongside the existing `SCORING_WEIGHTS`.
+- **Crawlability hard-gate**: a full AI-crawler block (`<meta name="robots" content="noindex">`, or a robots.txt disallowing every known AI crawler) zeroes `overall` regardless of every other category's score — categories still report their own scores so the rest of the report stays useful, but `overall` reflects that a fully blocked page has zero AI visibility no matter how well-structured it is.
+- **Backward-compatible `score`/`dimensions` fields on `AuditResult`**: `score` mirrors `overall`; `dimensions` is a documented best-effort mapping back to the old seven `AIReadabilityScore.breakdown` keys. Both are non-enumerable getters that `console.warn` once per result on first *read* (pointing at `overall`/`categories`) — being non-enumerable means `JSON.stringify(result)` (and therefore `audit --json`) never triggers the warning just by serializing a result.
+- **Reformatted `audit <url>`/`audit --dir` CLI output**: a bordered report per file/URL — overall score, a block-character bar per category (no new dependency; reuses the existing `chalk` import already in the CLI), an issue-severity summary (`● N Critical  ▲ N Warning(s)  ○ N Suggestion(s)`), and a "WHY YOU MAY BE INVISIBLE TO AI" list capped at the top 10 issues.
+- **`audit`/`lint --verbose`** — prints every individual check (all ~30, per category) with its own score, instead of just the capped top-issues list.
+- **`--json` now serializes the full `AuditResult`** — every category, every check's id/label/score, and every issue with its severity/description/impact/score_impact, not just a flat score.
+- Crawlability context extended: `AnalysisContext` gained `llmsTxtContent`, `hasAiTxt`, `hasSitemap`, and `responseTimeMs` (all optional, all "unknown by default"). `audit <url>` fetches `robots.txt`/`llms.txt`/`ai.txt`/`sitemap.xml` (best-effort, same as before) and times the live page fetch; `audit --dir` reads the same files from disk and checks robots.txt for a `Sitemap:` line.
+- `scoring-weights.json` **schemaVersion 2**: `dimensions` is now `CATEGORY_WEIGHTS`; the old `SCORING_WEIGHTS` are published alongside as `legacy_dimensions` so existing WordPress/Python consumers reading `dimensions` as the old shape have a drop-in fix (switch to `legacy_dimensions`) instead of silently misreading a changed shape.
+
+### Changed
+
+- `robots-block.ts` (the `isBlockedInRobotsTxt`/robots.txt group-precedence parser) was extracted out of `content-analyzer.ts` into its own module, `src/analyzer/robots-block.ts`, so the new `audit-engine.ts` could reuse it without a circular import between the two engines. No behavior change — same parsing logic, same test coverage.
+
+### Test coverage
+
+167 tests (up from 131). New: `audit-engine.test.ts` (category aggregation, the crawlability hard-gate — full block, partial block, no block — entity-signal checks including the "not applicable" cases for non-commercial pages, issue sorting/`score_impact`, and the `score`/`dimensions` backward-compat getters including their once-per-result warn behavior and non-enumerability), `cli-audit-format.test.ts` (`renderBar`, `auditSeverityIcon`, `colorByScore`, and `renderOneReport`'s full output including the 10-issue cap and `--verbose`), plus new `auditDir` coverage for `ai.txt`/`sitemap.xml` wiring in the existing `cli-audit.test.ts`.
+
 ## [0.5.0] - 2026-08-05
 
 Minor, not patch: new backward-compatible CLI commands, a new optional

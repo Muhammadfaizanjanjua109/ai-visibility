@@ -4,9 +4,11 @@
 // ============================================================
 
 import * as cheerio from 'cheerio'
-import type { AIReadabilityScore, AnalysisContext, AnalysisIssue, AnalyzerOptions } from '../types'
+import type { AIReadabilityScore, AnalysisContext, AnalysisIssue, AnalyzerOptions, AuditResult } from '../types'
 import { AI_CRAWLERS } from '../data/crawlers'
-import { SCORING_WEIGHTS } from './scoring-weights'
+import { SCORING_WEIGHTS, CATEGORY_WEIGHTS } from './scoring-weights'
+import { isBlockedInRobotsTxt } from './robots-block'
+import { runAudit } from './audit-engine'
 
 const DEFAULT_OPTIONS: Required<AnalyzerOptions> = {
     checkAnswerPlacement: true,
@@ -44,6 +46,7 @@ const WEIGHTS = Object.fromEntries(SCORING_WEIGHTS.map((d) => [d.key, d.weight])
  */
 export class ContentAnalyzer {
     static readonly SCORING_WEIGHTS = SCORING_WEIGHTS
+    static readonly CATEGORY_WEIGHTS = CATEGORY_WEIGHTS
 
     private options: Required<AnalyzerOptions>
 
@@ -146,6 +149,22 @@ export class ContentAnalyzer {
             }),
             recommendations,
         }
+    }
+
+    /**
+     * Run the AI Readiness Engine: scores HTML across six weighted
+     * categories (crawlability, structure, entity signals, citation
+     * readiness, content, authority) instead of `analyze()`'s flat
+     * seven-dimension breakdown. See docs/scoring.md.
+     *
+     * `context` is the same `AnalysisContext` `analyze()` takes, with a few
+     * additional optional fields (`llmsTxtContent`, `hasAiTxt`,
+     * `hasSitemap`, `responseTimeMs`) that improve the CRAWLABILITY
+     * category. `ai-visibility audit <url>` / `audit --dir` supply all of
+     * them automatically.
+     */
+    async audit(html: string, context: AnalysisContext = {}): Promise<AuditResult> {
+        return runAudit(html, context)
     }
 
     // ---- Individual Checks ----
@@ -592,73 +611,4 @@ export class ContentAnalyzer {
 
         return recs
     }
-}
-
-interface RobotsGroup {
-    agents: string[]
-    disallow: string[]
-    allow: string[]
-    /** Once a rule line has been seen, the next User-agent line starts a new group. */
-    rulesStarted: boolean
-}
-
-function parseRobotsGroups(robotsTxt: string): RobotsGroup[] {
-    const groups: RobotsGroup[] = []
-    let current: RobotsGroup | null = null
-
-    for (const raw of robotsTxt.split(/\r?\n/)) {
-        const line = raw.trim()
-
-        const uaMatch = line.match(/^user-agent\s*:\s*(.*)$/i)
-        if (uaMatch) {
-            const ua = uaMatch[1].trim().toLowerCase()
-            if (!current || current.rulesStarted) {
-                current = { agents: [], disallow: [], allow: [], rulesStarted: false }
-                groups.push(current)
-            }
-            current.agents.push(ua)
-            continue
-        }
-
-        if (!current) continue
-
-        const disallowMatch = line.match(/^disallow\s*:\s*(.*)$/i)
-        if (disallowMatch) {
-            current.disallow.push(disallowMatch[1].trim())
-            current.rulesStarted = true
-            continue
-        }
-
-        const allowMatch = line.match(/^allow\s*:\s*(.*)$/i)
-        if (allowMatch) {
-            current.allow.push(allowMatch[1].trim())
-            current.rulesStarted = true
-        }
-    }
-
-    return groups
-}
-
-/**
- * True if robots.txt disallows the whole site (`Disallow: /`) for this
- * bot. Uses the bot's own `User-agent:` group if one exists — a
- * bot-specific group always takes precedence over the wildcard `*` group,
- * per the robots.txt spec — and only falls back to `*` when no
- * bot-specific group is present. Deliberately conservative: a bare
- * `Disallow: /` alongside an `Allow: /` in the same group is treated as
- * ambiguous/permissive, not blocked, to avoid false positives on
- * legitimate configs this heuristic can't fully reason about.
- */
-function isBlockedInRobotsTxt(robotsTxt: string, botName: string): boolean {
-    const groups = parseRobotsGroups(robotsTxt)
-    const name = botName.toLowerCase()
-
-    const specific = groups.find((g) => g.agents.includes(name))
-    const wildcard = groups.find((g) => g.agents.includes('*'))
-    const group = specific ?? wildcard
-    if (!group) return false
-
-    const hasFullDisallow = group.disallow.includes('/')
-    const hasFullAllow = group.allow.includes('/')
-    return hasFullDisallow && !hasFullAllow
 }

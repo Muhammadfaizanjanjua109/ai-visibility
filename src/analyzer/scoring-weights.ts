@@ -10,7 +10,7 @@
 // read SCORING_WEIGHTS without ever loading cheerio/undici.
 // ============================================================
 
-import type { ScoringDimension } from '../types'
+import type { AuditCategoryWeight, ScoringDimension } from '../types'
 
 /**
  * Fixed, published GEO scoring weights. No ML, no black box — every
@@ -67,5 +67,51 @@ export const SCORING_WEIGHTS: ScoringDimension[] = [
         label: 'Crawler accessibility',
         weight: 0.10,
         description: 'Whether AI crawlers are actually allowed to fetch the page at all (meta robots, robots.txt, llms.txt) — a gate more than a differentiator, since a hard block already zeroes out every other dimension\'s value.',
+    },
+]
+
+/**
+ * Fixed, published AI Readiness category weights — the v0.6.0 replacement
+ * for the flat `SCORING_WEIGHTS` above (kept alongside it, unchanged, for
+ * backward compatibility — see `AuditResult.dimensions`). Consumed by
+ * `ContentAnalyzer.audit()` / `src/analyzer/audit-engine.ts`. Weights sum
+ * to 1.0 — enforced by a test. See docs/scoring.md.
+ */
+export const CATEGORY_WEIGHTS: AuditCategoryWeight[] = [
+    {
+        key: 'crawlability',
+        label: 'Crawlability',
+        weight: 0.20,
+        description: 'Whether AI crawlers can actually discover and fetch the page at all: robots.txt, llms.txt, ai.txt, sitemap discoverability, response time, and JavaScript dependency.',
+    },
+    {
+        key: 'structure',
+        label: 'Structure',
+        weight: 0.20,
+        description: 'Heading hierarchy, semantic HTML landmarks, content-to-noise ratio, answer front-loading, and FAQ/How-to patterns — what makes a page machine-segmentable.',
+    },
+    {
+        key: 'entitySignals',
+        label: 'Entity Signals',
+        weight: 0.20,
+        description: 'Organization and Person schema, product/service entity relationships, sameAs links, and machine-readable pricing — what lets AI systems resolve who/what this content is about.',
+    },
+    {
+        key: 'citationReadiness',
+        label: 'Citation Readiness',
+        weight: 0.15,
+        description: 'Fact density, sourced statistics, unique/original data, comparison content, and external authoritative references — what makes a claim worth citing.',
+    },
+    {
+        key: 'content',
+        label: 'Content',
+        weight: 0.15,
+        description: 'Snippability, topical depth, freshness signals, and multi-format support (text/tables/lists) for different query types.',
+    },
+    {
+        key: 'authority',
+        label: 'Authority',
+        weight: 0.10,
+        description: 'Author attribution, About/Team signals, contact information, trust signals, and whether claims are independently verifiable.',
     },
 ]

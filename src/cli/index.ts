@@ -15,7 +15,7 @@ const program = new Command()
 program
     .name('ai-visibility')
     .description('Make your web app citable by AI models')
-    .version('0.5.0')
+    .version('0.6.0')
     .option('-q, --quiet', 'suppress the CrawlPod footer and other non-essential output')
 
 registerAudit(program)

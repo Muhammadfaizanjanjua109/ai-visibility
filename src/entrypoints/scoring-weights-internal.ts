@@ -9,4 +9,4 @@
 // consumers the same way any unlisted path is.
 // ============================================================
 
-export { SCORING_WEIGHTS } from '../analyzer/scoring-weights'
+export { SCORING_WEIGHTS, CATEGORY_WEIGHTS } from '../analyzer/scoring-weights'

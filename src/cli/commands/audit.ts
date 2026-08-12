@@ -1,8 +1,8 @@
 // ============================================================
 // CLI: audit + lint commands
-// `audit` — the headline CLI feature: score a live URL or a local build
-//   directory for AI/GEO readability, with a JSON mode and a CI exit-code
-//   gate.
+// `audit` — the headline CLI feature: run the AI Readiness Engine against a
+//   live URL or a local build directory, with a JSON mode, a --verbose
+//   full-check mode, and a CI exit-code gate.
 // `lint`  — a thin wrapper around the same core with CI-friendly defaults
 //   (--dir . --fail-under 50). This *is* the "build-time GEO linter" —
 //   building a second analysis engine would just be `audit` again.
@@ -12,23 +12,24 @@ import type { Command } from 'commander'
 import fs from 'fs'
 import path from 'path'
 import { ContentAnalyzer } from '../../analyzer/content-analyzer'
-import type { AIReadabilityScore } from '../../types'
+import type { AnalysisContext, AuditResult, AuditSeverity } from '../../types'
 import { getChalk } from '../lib/chalk'
 import type { Chalk } from '../lib/chalk'
 import { findFiles, markdownToHTML, readSiteFile, SUPPORTED_EXTENSIONS } from '../lib/scan'
-import { scoreColor, severityIcon } from '../lib/format'
+import { auditSeverityIcon, colorByScore, renderBar, scoreColor } from '../lib/format'
 import { printFooter } from '../lib/footer'
 
 export interface AuditFileResult {
     file: string
     score: number
-    result: AIReadabilityScore
+    result: AuditResult
 }
 
 interface RunAuditOptions {
     url?: string
     dir?: string
     json: boolean
+    verbose: boolean
     failUnder?: number
 }
 
@@ -57,21 +58,11 @@ async function fetchPage(url: string): Promise<string> {
     return res.text()
 }
 
-/** Best-effort — a failed/missing robots.txt is "unknown", never a hard error. */
-async function fetchRobotsTxt(origin: string): Promise<string | undefined> {
+/** Best-effort — a failed/missing fetch is "unknown", never a hard error. */
+async function fetchTextFile(url: string): Promise<string | undefined> {
     try {
-        const res = await fetch(`${origin}/robots.txt`, { signal: AbortSignal.timeout(5000) })
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
         return res.ok ? await res.text() : undefined
-    } catch {
-        return undefined
-    }
-}
-
-/** Best-effort — a network failure is "unknown" (undefined); a clean 404 is a definite "no" (false). */
-async function fetchLlmsTxtPresence(origin: string): Promise<boolean | undefined> {
-    try {
-        const res = await fetch(`${origin}/llms.txt`, { signal: AbortSignal.timeout(5000) })
-        return res.ok
     } catch {
         return undefined
     }
@@ -79,21 +70,46 @@ async function fetchLlmsTxtPresence(origin: string): Promise<boolean | undefined
 
 async function auditUrl(rawUrl: string): Promise<AuditFileResult[]> {
     const url = new URL(rawUrl)
-    const [html, robotsTxt, hasLlmsTxt] = await Promise.all([
-        fetchPage(url.toString()),
-        fetchRobotsTxt(url.origin),
-        fetchLlmsTxtPresence(url.origin),
+
+    const pageStart = Date.now()
+    const pagePromise = fetchPage(url.toString()).then((html) => ({ html, responseTimeMs: Date.now() - pageStart }))
+
+    const [{ html, responseTimeMs }, robotsTxt, llmsTxtContent, aiTxtContent, sitemapContent] = await Promise.all([
+        pagePromise,
+        fetchTextFile(`${url.origin}/robots.txt`),
+        fetchTextFile(`${url.origin}/llms.txt`),
+        fetchTextFile(`${url.origin}/ai.txt`),
+        fetchTextFile(`${url.origin}/sitemap.xml`),
     ])
 
+    const context: AnalysisContext = {
+        robotsTxt,
+        hasLlmsTxt: llmsTxtContent !== undefined,
+        llmsTxtContent,
+        hasAiTxt: aiTxtContent !== undefined,
+        hasSitemap: sitemapContent !== undefined || /sitemap\s*:/i.test(robotsTxt ?? ''),
+        responseTimeMs,
+    }
+
     const analyzer = new ContentAnalyzer()
-    const result = await analyzer.analyze(html, { robotsTxt, hasLlmsTxt })
-    return [{ file: url.toString(), score: result.overallScore, result }]
+    const result = await analyzer.audit(html, context)
+    return [{ file: url.toString(), score: result.overall, result }]
 }
 
 export async function auditDir(dir: string): Promise<AuditFileResult[]> {
     const files = findFiles(dir, SUPPORTED_EXTENSIONS)
     const robotsTxt = readSiteFile(dir, 'robots.txt')
-    const hasLlmsTxt = readSiteFile(dir, 'llms.txt') !== undefined
+    const llmsTxtContent = readSiteFile(dir, 'llms.txt')
+    const aiTxtContent = readSiteFile(dir, 'ai.txt')
+    const sitemapContent = readSiteFile(dir, 'sitemap.xml')
+
+    const context: AnalysisContext = {
+        robotsTxt,
+        hasLlmsTxt: llmsTxtContent !== undefined,
+        llmsTxtContent,
+        hasAiTxt: aiTxtContent !== undefined,
+        hasSitemap: sitemapContent !== undefined || /sitemap\s*:/i.test(robotsTxt ?? ''),
+    }
 
     const analyzer = new ContentAnalyzer()
     const results: AuditFileResult[] = []
@@ -103,43 +119,89 @@ export async function auditDir(dir: string): Promise<AuditFileResult[]> {
         const ext = path.extname(file).toLowerCase()
         if (ext === '.md' || ext === '.mdx') content = markdownToHTML(content)
 
-        const result = await analyzer.analyze(content, { robotsTxt, hasLlmsTxt })
-        results.push({ file, score: result.overallScore, result })
+        const result = await analyzer.audit(content, context)
+        results.push({ file, score: result.overall, result })
     }
 
     return results
 }
 
-function renderReport(results: AuditFileResult[], chalk: Chalk, mode: 'audit' | 'lint'): void {
-    const sorted = [...results].sort((a, b) => a.score - b.score)
+const DIVIDER = '━'.repeat(44)
 
-    console.log(chalk.bold.cyan(`\n🤖 ai-visibility ${mode}\n`))
+function renderIssueSummary(result: AuditResult, chalk: Chalk): string {
+    const counts: Record<AuditSeverity, number> = { critical: 0, warning: 0, suggestion: 0 }
+    for (const issue of result.issues) counts[issue.severity]++
+    return [
+        `${auditSeverityIcon('critical', chalk)} ${counts.critical} Critical`,
+        `${auditSeverityIcon('warning', chalk)} ${counts.warning} Warning${counts.warning === 1 ? '' : 's'}`,
+        `${auditSeverityIcon('suggestion', chalk)} ${counts.suggestion} Suggestion${counts.suggestion === 1 ? '' : 's'}`,
+    ].join('   ')
+}
 
-    for (const { file, score, result } of sorted) {
-        const icon = score >= 80 ? '✅' : score >= 60 ? '⚠️ ' : '❌'
-        console.log(`${icon} ${chalk.bold(file)} — ${scoreColor(score, chalk)}`)
+export function renderOneReport(file: string, result: AuditResult, chalk: Chalk, verbose: boolean): void {
+    console.log(chalk.dim(DIVIDER))
+    console.log(chalk.bold.cyan('AI VISIBILITY AUDIT'))
+    console.log(chalk.gray(file))
+    console.log(chalk.dim(DIVIDER))
+    console.log()
+    console.log(`${chalk.bold('Overall AI Readiness:')} ${scoreColor(result.overall, chalk)}`)
+    console.log()
 
-        const b = result.breakdown
-        console.log(chalk.gray(`   Answer placement: ${b.answerFrontLoading}  Fact density: ${b.factDensity}  Headings: ${b.headingStructure}  E-E-A-T: ${b.eeatSignals}  Snippability: ${b.snippability}  Schema: ${b.schemaCoverage}  Crawler access: ${b.crawlerAccessibility}`))
+    for (const category of Object.values(result.categories)) {
+        const bar = renderBar(category.score)
+        const line = `${category.label.toUpperCase().padEnd(20)} ${bar} ${category.score}`
+        console.log(colorByScore(line, category.score, chalk))
+    }
+    console.log()
 
-        for (const issue of result.issues.slice(0, 5)) {
-            console.log(`   ${severityIcon(issue.severity)} ${chalk.white(issue.message)}`)
-            console.log(`      ${chalk.gray('Fix: ' + issue.fix)}`)
+    console.log(`${chalk.bold('Issues:')} ${result.issues.length} total`)
+    console.log(renderIssueSummary(result, chalk))
+    console.log()
+    console.log(chalk.dim(DIVIDER))
+    console.log()
+
+    if (result.issues.length > 0) {
+        console.log(chalk.bold('WHY YOU MAY BE INVISIBLE TO AI'))
+        console.log()
+        for (const issue of result.issues.slice(0, 10)) {
+            console.log(`${auditSeverityIcon(issue.severity, chalk)} ${issue.title}`)
         }
-        if (result.issues.length > 5) {
-            console.log(chalk.gray(`   ... and ${result.issues.length - 5} more issues`))
+        console.log()
+        console.log(chalk.dim(DIVIDER))
+    }
+
+    if (verbose) {
+        console.log()
+        console.log(chalk.bold('ALL CHECKS'))
+        for (const category of Object.values(result.categories)) {
+            console.log()
+            console.log(chalk.bold(category.label))
+            for (const check of category.checks) {
+                console.log(`  ${scoreColor(check.score, chalk)}  ${check.label}`)
+            }
         }
+        console.log()
+        console.log(chalk.dim(DIVIDER))
+    }
+}
+
+function renderReport(results: AuditFileResult[], chalk: Chalk, verbose: boolean): void {
+    console.log()
+    for (const { file, result } of results) {
+        renderOneReport(file, result, chalk, verbose)
         console.log()
     }
 
-    const avg = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length)
-    const passing = results.filter((r) => r.score >= 80).length
+    if (results.length > 1) {
+        const avg = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length)
+        const passing = results.filter((r) => r.score >= 80).length
 
-    console.log(chalk.bold('─'.repeat(50)))
-    console.log(`${chalk.bold('Scanned:')} ${results.length}`)
-    console.log(`${chalk.bold('Average score:')} ${scoreColor(avg, chalk)}`)
-    console.log(`${chalk.bold('Passing (≥80):')} ${chalk.green(passing)} / ${results.length}`)
-    console.log()
+        console.log(chalk.bold('─'.repeat(50)))
+        console.log(`${chalk.bold('Scanned:')} ${results.length}`)
+        console.log(`${chalk.bold('Average score:')} ${scoreColor(avg, chalk)}`)
+        console.log(`${chalk.bold('Passing (≥80):')} ${chalk.green(passing)} / ${results.length}`)
+        console.log()
+    }
 }
 
 async function runAndReport(opts: RunAuditOptions, mode: 'audit' | 'lint', command: Command): Promise<void> {
@@ -179,7 +241,7 @@ async function runAndReport(opts: RunAuditOptions, mode: 'audit' | 'lint', comma
         return
     }
 
-    renderReport(results, chalk, mode)
+    renderReport(results, chalk, opts.verbose)
     if (opts.failUnder !== undefined) {
         const failed = process.exitCode === 1
         console.log(failed
@@ -187,20 +249,26 @@ async function runAndReport(opts: RunAuditOptions, mode: 'audit' | 'lint', comma
             : chalk.green(`✅ All scores meet the ${opts.failUnder} threshold`))
         console.log()
     }
-    printFooter(chalk, quiet)
+
+    if (mode === 'audit') {
+        printFooter(chalk, quiet, '🚀 Track scores over time → crawlpod.com/pro')
+    } else {
+        printFooter(chalk, quiet)
+    }
 }
 
 export function registerAudit(program: Command): void {
     program
         .command('audit')
-        .description('Audit a live URL or local build directory for AI/GEO readability')
+        .description('Run the AI Readiness Engine against a live URL or local build directory')
         .argument('[url]', 'URL to audit (fetches the live page)')
         .option('--dir <path>', 'Audit a local build directory instead of a live URL')
         .option('--json', 'Output results as JSON')
+        .option('--verbose', 'Show every individual check with its score, not just the top issues')
         .option('--fail-under <n>', 'Exit with a non-zero code if any score is below this threshold (0-100) — for CI')
         .action(async (url: string | undefined, options, command: Command) => {
             await runAndReport(
-                { url, dir: options.dir, json: Boolean(options.json), failUnder: parseThreshold(options.failUnder) },
+                { url, dir: options.dir, json: Boolean(options.json), verbose: Boolean(options.verbose), failUnder: parseThreshold(options.failUnder) },
                 'audit',
                 command
             )
@@ -211,10 +279,11 @@ export function registerAudit(program: Command): void {
         .description('Build-time GEO lint — audits a local directory with CI-friendly defaults (shorthand for: audit --dir . --fail-under 50)')
         .option('--dir <path>', 'Directory to lint', '.')
         .option('--json', 'Output results as JSON')
+        .option('--verbose', 'Show every individual check with its score, not just the top issues')
         .option('--fail-under <n>', 'Exit with a non-zero code if any score is below this threshold (0-100)', '50')
         .action(async (options, command: Command) => {
             await runAndReport(
-                { dir: options.dir, json: Boolean(options.json), failUnder: parseThreshold(options.failUnder) },
+                { dir: options.dir, json: Boolean(options.json), verbose: Boolean(options.verbose), failUnder: parseThreshold(options.failUnder) },
                 'lint',
                 command
             )

@@ -53,7 +53,7 @@ describe('auditDir', () => {
         for (const r of results) {
             expect(r.score).toBeGreaterThanOrEqual(0)
             expect(r.score).toBeLessThanOrEqual(100)
-            expect(r.result.breakdown.crawlerAccessibility).toBeGreaterThan(0)
+            expect(r.result.categories.crawlability.score).toBeGreaterThan(0)
         }
     })
 
@@ -70,6 +70,28 @@ describe('auditDir', () => {
         fs.writeFileSync(path.join(dir, 'index.html'), '<html><body><h1>Home</h1><p>Substantive content goes here for scoring.</p></body></html>')
 
         const results = await auditDir(dir)
-        expect(results[0]!.result.issues.some((i) => i.message.includes('No llms.txt'))).toBe(true)
+        expect(results[0]!.result.issues.some((i) => i.title.includes('No llms.txt'))).toBe(true)
+    })
+
+    it('picks up ai.txt and sitemap.xml presence from the directory', async () => {
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-visibility-audit-aitxt-'))
+        fs.writeFileSync(path.join(dir, 'index.html'), '<html><body><h1>Home</h1><p>Substantive content goes here for scoring.</p></body></html>')
+        fs.writeFileSync(path.join(dir, 'ai.txt'), 'User-agent: *\nAllow: /\n')
+        fs.writeFileSync(path.join(dir, 'sitemap.xml'), '<?xml version="1.0"?><urlset></urlset>')
+
+        const results = await auditDir(dir)
+        const crawlability = results[0]!.result.categories.crawlability
+        expect(crawlability.checks.find((c) => c.id === 'crawl-ai-txt')?.score).toBe(100)
+        expect(crawlability.checks.find((c) => c.id === 'crawl-sitemap')?.score).toBe(100)
+    })
+
+    it('treats a `Sitemap:` line in robots.txt as sitemap discoverability even without sitemap.xml on disk', async () => {
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-visibility-audit-sitemaprobots-'))
+        fs.writeFileSync(path.join(dir, 'index.html'), '<html><body><h1>Home</h1><p>Substantive content goes here for scoring.</p></body></html>')
+        fs.writeFileSync(path.join(dir, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml\n')
+
+        const results = await auditDir(dir)
+        const crawlability = results[0]!.result.categories.crawlability
+        expect(crawlability.checks.find((c) => c.id === 'crawl-sitemap')?.score).toBe(100)
     })
 })
