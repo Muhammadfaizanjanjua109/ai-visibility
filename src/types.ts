@@ -534,6 +534,82 @@ export interface MeasurementReport {
     }
 }
 
+// ---- Citation Intelligence (v0.8.0) ----
+
+export type SourceType =
+    | 'own-domain'
+    | 'review-site'
+    | 'comparison-site'
+    | 'news'
+    | 'forum'
+    | 'social'
+    | 'documentation'
+    | 'marketplace'
+    | 'other'
+
+export interface CitationSource {
+    domain: string
+    url?: string
+    mentions: number
+    type: SourceType
+    mentionsBrand: boolean
+    mentionsCompetitors: string[]
+    /** Prompt cluster (e.g. 'discovery', 'comparison') that first surfaced this source. */
+    firstSeen: string
+}
+
+export interface CitationReport {
+    brand: string
+    brandDomain: string
+    sources: CitationSource[]
+    sourcesByType: Record<SourceType, CitationSource[]>
+    totalMentions: number
+    /** 0-1: share of all source mentions that are the brand's own domain. */
+    domainCoverage: number
+    /** 0-1: share of all source mentions that are third-party (non-own-domain) sources. */
+    thirdPartyCoverage: number
+    /** Sources that cite at least one competitor but never the brand, sorted by mentions descending. */
+    topCompetitorSources: CitationSource[]
+}
+
+// ---- Competitor Gap Analysis (v0.8.0) ----
+
+export type GapImpact = 'high' | 'medium' | 'low'
+
+export interface GapReason {
+    id: string
+    reason: string
+    impact: GapImpact
+    evidence: string
+    actionable: string
+}
+
+export interface CompetitorGap {
+    competitor: string
+    visibility: {
+        yours: number
+        theirs: number
+        /** theirs - yours; positive = they're winning. */
+        gap: number
+    }
+    /** Sorted by impact, descending (high -> medium -> low). */
+    reasons: GapReason[]
+}
+
+export interface GapSummary {
+    /** Mean of `gap` across all analyzed competitors. */
+    averageGap: number
+    biggestGap: string | null
+    smallestGap: string | null
+}
+
+export interface CompetitorReport {
+    brand: string
+    /** Sorted by visibility.gap descending — the competitor winning by the most first. */
+    competitors: CompetitorGap[]
+    overallGap: GapSummary
+}
+
 // ---- Express augmentation ----
 declare global {
     namespace Express {

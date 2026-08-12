@@ -13,6 +13,8 @@ export default defineConfig([
             engines: 'src/entrypoints/engines.ts',
             prompts: 'src/entrypoints/prompts.ts',
             measure: 'src/entrypoints/measure.ts',
+            citations: 'src/entrypoints/citations.ts',
+            competitor: 'src/entrypoints/competitor.ts',
             // Internal-only build artifact, not part of package.json's
             // exports map — see src/entrypoints/scoring-weights-internal.ts
             'scoring-weights-internal': 'src/entrypoints/scoring-weights-internal.ts',

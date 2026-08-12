@@ -68,7 +68,7 @@ async function fetchTextFile(url: string): Promise<string | undefined> {
     }
 }
 
-async function auditUrl(rawUrl: string): Promise<AuditFileResult[]> {
+export async function auditUrl(rawUrl: string): Promise<AuditFileResult[]> {
     const url = new URL(rawUrl)
 
     const pageStart = Date.now()

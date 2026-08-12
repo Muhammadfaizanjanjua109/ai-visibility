@@ -26,6 +26,8 @@ AI models like ChatGPT, Gemini, and Perplexity are increasingly the first place 
 | Know if I'm doing it right | Content analyzer / `npx ai-visibility audit <url>` | AI Readiness score across 6 categories + specific fixes |
 | Gate CI on AI-readiness | `npx ai-visibility lint` | Non-zero exit code below a threshold |
 | Know if AI engines actually mention my brand | `npx ai-visibility measure` (BYOK) | Brand-vs-competitor visibility with confidence intervals |
+| Know where AI engines learn about my brand | `npx ai-visibility citations` | Citation source breakdown (own domain vs. review sites, news, forums, etc.) |
+| Know why a competitor beats me | `npx ai-visibility compare` | Ranked, evidence-backed reasons + action items |
 | Track AI crawler visits | Visitor logger | Log of all AI crawler activity |
 | Monitor AI activity visually | Free Dashboard | Real-time analytics & insights |
 | Get started quickly | CLI tool | 1 command to set up everything |
@@ -84,7 +86,12 @@ npx ai-visibility robots --preset block-training   # allow-all | block-training 
 npx ai-visibility llms --site-name "My Site"
 
 npx ai-visibility discover --brand "Acme CRM" --category "CRM software" --competitors "HubSpot,Pipedrive"
-npx ai-visibility measure --brand "Acme CRM" --category "CRM software" --competitors "HubSpot,Pipedrive" --runs 3
+npx ai-visibility measure --brand "Acme CRM" --category "CRM software" --competitors "HubSpot,Pipedrive" --runs 3 --json > report.json
+
+npx ai-visibility citations --domain acmecrm.com --from report.json     # where does AI learn about you?
+npx ai-visibility compare --from report.json                            # why is HubSpot winning?
+npx ai-visibility report --domain acmecrm.com --url https://acmecrm.com --brand "Acme CRM" --category "CRM software" --competitors "HubSpot,Pipedrive"
+# ^ full pipeline in one run: audit + discover + measure + citations + compare
 
 npx ai-visibility init                     # scaffold robots.txt, llms.txt, framework-specific instructions
 npx ai-visibility logs --summary           # if you're using AIVisitorLogger
@@ -109,6 +116,20 @@ Set `CRAWLPOD_OPENAI_KEY`/`CRAWLPOD_PERPLEXITY_KEY`/`CRAWLPOD_GEMINI_KEY`/`CRAWL
 or add a `crawlpod.config.js` — see [docs/measurement.md](./docs/measurement.md)
 for the full config precedence, prompt templates, and statistics formulas.
 
+`citations` analyzes a `MeasurementReport`'s raw AI responses to show
+*where* AI engines learn about your brand — your own domain vs. review
+sites, comparison sites, news, forums, social, documentation, and
+marketplaces — plus which third-party sources cite your competitors but
+never you. `compare` explains *why* each competitor outranks you: up to
+seven evidence-backed reasons (citation gap, prompt-cluster coverage,
+recommendation rate, per-engine blind spots, listing position, missing
+comparison content, review/social proof), each with a concrete action item,
+ranked by impact. Both accept `--from <file>` to reuse a previously saved
+`measure --json` report instead of re-querying engines (saves API credits)
+— `citations` still needs `--domain` either way. `report` runs the entire
+pipeline — `audit` (if you pass a URL or `--dir`) + `discover` + `measure`
++ `citations` + `compare` — in one combined report.
+
 ---
 
 ## Package Exports
@@ -126,6 +147,8 @@ for the full config precedence, prompt templates, and statistics formulas.
 | `ai-visibility/engines` | `OpenAIAdapter`, `PerplexityAdapter`, `GeminiAdapter`, `AnthropicAdapter` (BYOK) | **none** | ✅ |
 | `ai-visibility/prompts` | `PromptDiscovery` | **none** | ✅ |
 | `ai-visibility/measure` | `MeasurementEngine` | **none** | ✅ |
+| `ai-visibility/citations` | `CitationAnalyzer` | **none** | ✅ |
+| `ai-visibility/competitor` | `CompetitorAnalyzer` | **none** | ✅ |
 
 ¹ Every `SchemaBuilder` method is dependency-free except `fromHTML()`, which lazily loads `cheerio` on first call — importing `ai-visibility/schema` never pulls it in unless you actually call `fromHTML()`.
 
@@ -145,6 +168,10 @@ import { createNextMiddleware } from 'ai-visibility/next'
 import { OpenAIAdapter } from 'ai-visibility/engines'
 import { PromptDiscovery } from 'ai-visibility/prompts'
 import { MeasurementEngine } from 'ai-visibility/measure'
+
+// Citation source breakdown + competitor gap analysis, both built on a MeasurementReport:
+import { CitationAnalyzer } from 'ai-visibility/citations'
+import { CompetitorAnalyzer } from 'ai-visibility/competitor'
 ```
 
 ---
@@ -199,10 +226,18 @@ Every export, one line each — see [crawlpod.com/docs/api-reference](https://cr
 **`ai-visibility/measure`** (zero dependencies):
 - `MeasurementEngine` — queries configured engines with repeated sampling and reports brand-vs-competitor visibility (mention rate, recommend rate, citation rate) with 95% confidence intervals — see [docs/measurement.md](./docs/measurement.md)
 
+**`ai-visibility/citations`** (zero dependencies):
+- `CitationAnalyzer` — analyzes a `MeasurementReport`'s raw responses to extract and classify citation sources (own domain / review-site / comparison-site / news / forum / social / documentation / marketplace / other), reporting domain vs. third-party coverage and which sources cite competitors but never the brand
+- `classifySource`, `extractSourceRefs`, and the rest of the extraction/classification helpers, for building custom citation tooling
+
+**`ai-visibility/competitor`** (zero dependencies):
+- `CompetitorAnalyzer` — explains why each competitor outranks the brand: up to seven evidence-backed `GapReason`s (citation gap, prompt-cluster coverage, recommendation rate, per-engine blind spots, listing position, missing comparison content, review/social proof), each with `impact`/`evidence`/`actionable`, ranked by impact — every reason is derived from the measurement data, never fabricated
+- `detectGapReasons`, `classifyImpactByRatio`, `classifyImpactByPercentGap`, for building on the same logic directly
+
 **Root barrel only** (also re-exports everything above):
 - `ContentAnalyzer` — the AI Readiness Engine. `audit()` scores HTML across 6 weighted categories (crawlability, structure, entity signals, citation readiness, content, authority) with structured, severity-ranked issues; fixed published weights via `ContentAnalyzer.CATEGORY_WEIGHTS` — see [docs/scoring.md](./docs/scoring.md). The original flat 7-dimension `analyze()` (`ContentAnalyzer.SCORING_WEIGHTS`) is still exported, unchanged, for existing consumers.
 - `Dashboard`, `createDashboard()` — self-hosted analytics dashboard, no infrastructure or data collection
-- CLI (`npx ai-visibility audit | lint | init | analyze | generate | robots | llms | logs`) — see [CLI](#cli) above
+- CLI (`npx ai-visibility audit | lint | discover | measure | citations | compare | report | init | analyze | generate | robots | llms | logs`) — see [CLI](#cli) above
 
 ### Crawler registry
 

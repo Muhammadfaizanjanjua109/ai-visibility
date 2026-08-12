@@ -103,4 +103,14 @@ describe('zero runtime dependencies (edge-safe subpaths)', () => {
         const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/measure.ts'))
         expect(external).toEqual([])
     })
+
+    it('ai-visibility/citations has no static external imports', () => {
+        const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/citations.ts'))
+        expect(external).toEqual([])
+    })
+
+    it('ai-visibility/competitor has no static external imports', () => {
+        const external = collectExternalStaticImports(path.join(SRC_ROOT, 'entrypoints/competitor.ts'))
+        expect(external).toEqual([])
+    })
 })

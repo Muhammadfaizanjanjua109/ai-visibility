@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] - 2026-08-12
+
+Minor, not patch: two new subpath exports (`ai-visibility/citations`,
+`/competitor`) and three new CLI commands (`citations`, `compare`,
+`report`) — all additive, nothing existing changed.
+
+Theme: "Know Why You're Invisible." v0.7.0's Measurement Engine tells you
+*whether* AI engines mention your brand; it doesn't say *where* they got
+that information from, or *why* a competitor keeps winning. v0.8.0 is the
+intelligence layer on top: `CitationAnalyzer` mines a `MeasurementReport`'s
+raw responses for citation sources (own domain, review sites, comparison
+sites, news, forums, social, documentation, marketplaces) and reports
+domain-vs-third-party coverage plus which sources cite competitors but
+never you; `CompetitorAnalyzer` turns the same data into up to seven
+ranked, evidence-backed `GapReason`s per competitor — citation gap, prompt-
+cluster coverage, recommendation rate, per-engine blind spots, listing
+position, missing comparison content, review/social proof — each with a
+concrete action item. Every reason is derived from real measurement data;
+nothing is fabricated when the data doesn't support it. All three new CLI
+commands accept `--from <file>` to reuse a previously saved
+`measure --json` report instead of re-querying engines.
+
+### Added
+
+- **`ai-visibility/citations`** — `CitationAnalyzer.analyze(report, brandDomain)`: extracts citation sources from a `MeasurementReport` (building on v0.7.0's `citedUrls`, plus new markdown-link and known-domain bare-mention extraction — "according to G2" with no URL still resolves to `g2.com`), classifies each by `SourceType` via plain domain pattern matching, and aggregates into a `CitationReport` (`sources`, `sourcesByType`, `domainCoverage`, `thirdPartyCoverage`, `topCompetitorSources`).
+- **`ai-visibility/competitor`** — `CompetitorAnalyzer.analyze(report, brand, competitors)`: computes each competitor's visibility gap and runs seven gap-reason detectors against the measurement data, emitting only the reasons the data actually supports, sorted by impact (`classifyImpactByRatio`/`classifyImpactByPercentGap`, both exported).
+- **`citations` CLI command** — prints where AI engines learn about your brand: a source table (domain, mentions, type), your-domain vs. third-party coverage split, and sources citing competitors but not you. Requires `--domain`; `--verbose` shows every source instead of the top 10.
+- **`compare` CLI command** — prints "Why they're winning": each competitor's visibility gap and its ranked, evidence-backed reasons grouped by impact (high/medium/low), each with an action item.
+- **`report` CLI command** — the full pipeline in one report: `audit` (optional — pass a URL or `--dir` to include it) + `discover` + `measure` + `citations` + `compare`.
+- **`--from <file>`** on all three new commands — loads a previously saved `measure --json` report instead of running discovery + measurement again, so repeated `citations`/`compare`/`report` runs don't re-spend API credits. `compare`/`report` default `--competitors` to every competitor already present in the loaded report.
+
+### Test coverage
+
+293 tests (up from 219). New: `citation-source-classify.test.ts`, `citation-url-extract.test.ts`, `citation-analyzer.test.ts`, `competitor-gap-reasons.test.ts` (impact classification + all seven detectors, including the negative cases where a reason must *not* fire), `competitor-analyzer.test.ts`, `cli-citations-format.test.ts`, `cli-compare-format.test.ts`, `cli-report-source.test.ts` (`--from` loading and the live-measurement fallback), plus 2 new zero-external-static-import checks in `zero-deps.test.ts` for the two new subpaths.
+
 ## [0.7.0] - 2026-08-12
 
 Minor, not patch: three new subpath exports (`ai-visibility/engines`,
