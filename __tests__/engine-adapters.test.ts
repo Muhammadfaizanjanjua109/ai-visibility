@@ -8,7 +8,7 @@ import { OpenAIAdapter } from '../src/engines/openai-adapter'
 import { PerplexityAdapter } from '../src/engines/perplexity-adapter'
 import { GeminiAdapter } from '../src/engines/gemini-adapter'
 import { AnthropicAdapter } from '../src/engines/anthropic-adapter'
-import { extractUrls } from '../src/engines/shared'
+import { extractUrls, EngineResponseError } from '../src/engines/shared'
 
 function jsonResponse(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), { status, statusText: status === 200 ? 'OK' : 'Error' })
@@ -102,6 +102,13 @@ describe('OpenAIAdapter', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: 'bad key' }, 401)))
         await expect(new OpenAIAdapter('bad-key').query('prompt')).rejects.toThrow(/OpenAI API request failed: 401/)
     })
+
+    it('throws EngineResponseError when the response shape is unexpected', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ model: 'gpt-4o-mini', choices: [] })))
+        const err = await new OpenAIAdapter('sk-test').query('prompt').catch((e) => e)
+        expect(err).toBeInstanceOf(EngineResponseError)
+        expect(err.message).toBe('OpenAI response missing choices[0].message.content')
+    })
 })
 
 describe('PerplexityAdapter', () => {
@@ -135,6 +142,13 @@ describe('PerplexityAdapter', () => {
         )
         const result = await new PerplexityAdapter('pplx-test').query('prompt')
         expect(result.citations).toEqual(['https://acme.example/x'])
+    })
+
+    it('throws EngineResponseError when the response shape is unexpected', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ model: 'sonar', choices: [] })))
+        const err = await new PerplexityAdapter('pplx-test').query('prompt').catch((e) => e)
+        expect(err).toBeInstanceOf(EngineResponseError)
+        expect(err.message).toBe('Perplexity response missing choices[0].message.content')
     })
 })
 
@@ -177,6 +191,13 @@ describe('GeminiAdapter', () => {
         const result = await new GeminiAdapter('AI-test').query('prompt')
         expect(result.citations).toEqual(['https://grounded.example/source'])
     })
+
+    it('throws EngineResponseError when the response shape is unexpected', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ candidates: [] })))
+        const err = await new GeminiAdapter('AI-test').query('prompt').catch((e) => e)
+        expect(err).toBeInstanceOf(EngineResponseError)
+        expect(err.message).toBe('Gemini response missing candidates[0].content.parts')
+    })
 })
 
 describe('AnthropicAdapter', () => {
@@ -205,5 +226,12 @@ describe('AnthropicAdapter', () => {
     it('throws a descriptive error on a non-ok response', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: 'overloaded' }, 529)))
         await expect(new AnthropicAdapter('sk-ant-test').query('prompt')).rejects.toThrow(/Anthropic API request failed: 529/)
+    })
+
+    it('throws EngineResponseError when the response shape is unexpected', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ model: 'claude-sonnet-4-6' })))
+        const err = await new AnthropicAdapter('sk-ant-test').query('prompt').catch((e) => e)
+        expect(err).toBeInstanceOf(EngineResponseError)
+        expect(err.message).toBe('Anthropic response missing content array')
     })
 })

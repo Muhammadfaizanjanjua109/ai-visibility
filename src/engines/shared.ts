@@ -28,6 +28,14 @@ export class EngineHttpError extends Error {
     }
 }
 
+/** Thrown when an engine's HTTP API responds `ok` but its JSON body doesn't have the shape the adapter expects. */
+export class EngineResponseError extends Error {
+    constructor(public readonly engine: string, public readonly detail: string) {
+        super(`${engine} response ${detail}`)
+        this.name = 'EngineResponseError'
+    }
+}
+
 /** Runs `fn`, timing it, and returns both the result and the timing fields shared by every `EngineResponse`. */
 export async function timedQuery<T>(fn: () => Promise<T>): Promise<{ result: T; timestamp: number; latencyMs: number }> {
     const start = Date.now()

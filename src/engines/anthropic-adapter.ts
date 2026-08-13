@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { EngineAdapter, EngineResponse, QueryOptions } from '../types'
-import { assertOk, buildEngineResponse, extractUrls, timedQuery } from './shared'
+import { assertOk, buildEngineResponse, EngineResponseError, extractUrls, timedQuery } from './shared'
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6'
 const API_URL = 'https://api.anthropic.com/v1/messages'
@@ -43,7 +43,10 @@ export class AnthropicAdapter implements EngineAdapter {
             return (await res.json()) as AnthropicMessagesResponse
         })
 
-        const content = (body.content ?? [])
+        if (!Array.isArray(body.content)) {
+            throw new EngineResponseError(this.name, 'missing content array')
+        }
+        const content = body.content
             .filter((block) => block.type === 'text')
             .map((block) => block.text ?? '')
             .join('')
