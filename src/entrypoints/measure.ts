@@ -6,9 +6,6 @@
 // ============================================================
 
 export { MeasurementEngine } from '../measure/measurement-engine'
-export { analyzeEntities } from '../measure/brand-detection'
-export type { EntityOutcome } from '../measure/brand-detection'
-export { mean, variance, confidenceInterval } from '../measure/stats'
 export type {
     MeasureConfig,
     MeasurementReport,
