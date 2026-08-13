@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.2] - 2026-08-13
+
+Patch: bug fixes and API-surface cleanup, no new features.
+
+### Fixed
+
+- CLI `--version` now reads from `package.json` at runtime instead of a hardcoded string that had drifted out of sync with the actual package version.
+- `OpenAIAdapter`/`PerplexityAdapter`/`GeminiAdapter`/`AnthropicAdapter` now validate the parsed JSON response shape before use, throwing a descriptive `EngineResponseError` (exported from `ai-visibility/engines`) instead of surfacing a confusing downstream error on a malformed API response.
+- `mean`, `variance`, `confidenceInterval` (internal statistics helpers) and `analyzeEntities`/`EntityOutcome` (internal entity-detection helpers) are no longer exported from `ai-visibility/measure` — they were never meant to be public API, only used internally by `MeasurementEngine`.
+- npm `homepage` field now points to https://crawlpod.com instead of the GitHub README.
+
+### Changed
+
+- Crawler registry re-verified against vendor documentation for August 2026; added `Meta-WebIndexer` and `Meta-ExternalFetcher` (both newly documented by Meta). See [docs/crawler-registry.md](./docs/crawler-registry.md) for what was checked and deliberately not added (Google-CloudVertexBot, Meta-ExternalAds, FacebookExternalHit, xAI/Grok, DeepSeek).
+
 ## [0.8.0] - 2026-08-12
 
 Minor, not patch: two new subpath exports (`ai-visibility/citations`,
