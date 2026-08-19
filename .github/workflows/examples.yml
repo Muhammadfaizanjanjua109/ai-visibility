@@ -148,6 +148,7 @@ jobs:
       - name: Install dependencies + the current repo's ai-visibility build
         working-directory: nuxt-scaffold
         run: |
+          npm cache clean --force
           npm install
           npm install /tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}
       - name: Build
@@ -199,6 +200,7 @@ jobs:
       - name: Install dependencies + the current repo's ai-visibility build
         working-directory: rr-scaffold
         run: |
+          npm cache clean --force
           npm install
           npm install /tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}
       - name: Build
