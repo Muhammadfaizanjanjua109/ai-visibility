@@ -69,13 +69,14 @@ you actually care about, whichever comes first.
 1. OpenAI — https://developers.openai.com/api/docs/bots (GPTBot, ChatGPT-User, OAI-SearchBot; also documents OAI-AdsBot, not currently tracked here — ad-safety verification, not content citation, so it's out of scope for this package's purpose)
 2. Anthropic — https://support.claude.com/en/articles/8896518 (ClaudeBot, Claude-User, Claude-SearchBot)
 3. Perplexity — https://docs.perplexity.ai/guides/bots (PerplexityBot, Perplexity-User)
-4. Google — https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers (Google-Extended, Googlebot)
-5. Microsoft — https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0 (Bingbot)
+4. Google — https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers (Google-Extended, Googlebot; also documents Google-CloudVertexBot as of 2026-08-13, not tracked here — a site owner's own opt-in crawl for building their own Vertex AI Agent, not a crawler that affects AI citation of the site, same rationale as OAI-AdsBot)
+5. Microsoft — https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0 (Bingbot; as of 2026-08-13, Copilot answers are grounded in the Bing index via Bingbot itself — no separate documented Copilot/AI crawler token exists)
 6. Common Crawl — https://commoncrawl.org/ccbot (CCBot)
 7. Amazon — https://developer.amazon.com/amazonbot (Amazonbot, Amzn-SearchBot, Amzn-User)
-8. Meta — https://developers.facebook.com/docs/sharing/webmasters/crawler (meta-externalagent)
-9. Apple — https://support.apple.com/en-us/119829 (Applebot-Extended)
+8. Meta — https://developers.facebook.com/docs/sharing/webmasters/crawler (meta-externalagent; as of 2026-08-13 also documents Meta-WebIndexer and Meta-ExternalFetcher, both now tracked here, plus FacebookExternalHit and Meta-ExternalAds, which are not — same "not content citation" scope rule as OAI-AdsBot)
+9. Apple — https://support.apple.com/en-us/119829 (Applebot-Extended; a 2026-06-08 doc update formalized how Applebot/Applebot-Extended data feeds Siri/Apple Intelligence generative answers, but introduced no new crawler token)
 10. ByteDance — no official documentation exists; re-check whether that's changed before flipping Bytespider's `verified` to `true`
+11. xAI (Grok) and DeepSeek — checked 2026-08-13, neither publishes an official crawler user-agent; do not add entries for either until they do (see the note in `src/data/crawlers.ts`)
 
 For each: confirm the token is still current, confirm it's still a stable
 substring (not a version-pinned string — vendor UAs always embed a version

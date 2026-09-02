@@ -110,6 +110,25 @@ describe('Microsoft, Common Crawl, Meta, Apple crawlers', () => {
     })
 })
 
+describe('Meta crawlers (added 2026-08-13)', () => {
+    it('detects Meta-WebIndexer (search)', () => {
+        const bot = detectBot(ua('Meta-WebIndexer/1.0'))
+        expect(bot?.name).toBe('Meta-WebIndexer')
+        expect(bot?.purpose).toBe('search')
+    })
+
+    it('detects Meta-ExternalFetcher (user-triggered)', () => {
+        expect(detectBot(ua('Meta-ExternalFetcher/1.0'))?.name).toBe('Meta-ExternalFetcher')
+    })
+
+    it('does not cross-match meta-externalagent, Meta-WebIndexer, and Meta-ExternalFetcher', () => {
+        const agent = detectBot(ua('meta-externalagent/1.0'))?.name
+        const indexer = detectBot(ua('Meta-WebIndexer/1.0'))?.name
+        const fetcher = detectBot(ua('Meta-ExternalFetcher/1.0'))?.name
+        expect(new Set([agent, indexer, fetcher]).size).toBe(3)
+    })
+})
+
 describe('Amazon crawlers', () => {
     it('detects Amazonbot (training)', () => {
         const bot = detectBot('Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Amazonbot/0.1) Chrome/119.0.0.0 Safari/537.36')

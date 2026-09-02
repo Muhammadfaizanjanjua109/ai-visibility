@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { EngineAdapter, EngineResponse, QueryOptions } from '../types'
-import { assertOk, buildEngineResponse, extractUrls, timedQuery } from './shared'
+import { assertOk, buildEngineResponse, EngineResponseError, extractUrls, timedQuery } from './shared'
 
 const DEFAULT_MODEL = 'gpt-4o-mini'
 const API_URL = 'https://api.openai.com/v1/chat/completions'
@@ -53,7 +53,10 @@ export class OpenAIAdapter implements EngineAdapter {
         })
 
         const message = text.choices?.[0]?.message
-        const content = message?.content ?? ''
+        const content = message?.content
+        if (typeof content !== 'string') {
+            throw new EngineResponseError(this.name, 'missing choices[0].message.content')
+        }
         const annotationUrls = (message?.annotations ?? [])
             .map((a) => a.url_citation?.url)
             .filter((url): url is string => Boolean(url))

@@ -3,6 +3,8 @@
 // ai-visibility CLI
 // ============================================================
 
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import { Command } from 'commander'
 import { registerInit } from './commands/init'
 import { registerAnalyze } from './commands/analyze'
@@ -15,12 +17,14 @@ import { registerCitations } from './commands/citations'
 import { registerCompare } from './commands/compare'
 import { registerReport } from './commands/report'
 
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf-8')) as { version: string }
+
 const program = new Command()
 
 program
     .name('ai-visibility')
     .description('Make your web app citable by AI models')
-    .version('0.8.0')
+    .version(pkg.version)
     .option('-q, --quiet', 'suppress the CrawlPod footer and other non-essential output')
 
 registerAudit(program)

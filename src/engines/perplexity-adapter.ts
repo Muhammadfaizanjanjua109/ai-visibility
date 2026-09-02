@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { EngineAdapter, EngineResponse, QueryOptions } from '../types'
-import { assertOk, buildEngineResponse, extractUrls, timedQuery } from './shared'
+import { assertOk, buildEngineResponse, EngineResponseError, extractUrls, timedQuery } from './shared'
 
 const DEFAULT_MODEL = 'sonar'
 const API_URL = 'https://api.perplexity.ai/chat/completions'
@@ -42,7 +42,10 @@ export class PerplexityAdapter implements EngineAdapter {
             return (await res.json()) as PerplexityChatCompletionResponse
         })
 
-        const content = body.choices?.[0]?.message?.content ?? ''
+        const content = body.choices?.[0]?.message?.content
+        if (typeof content !== 'string') {
+            throw new EngineResponseError(this.name, 'missing choices[0].message.content')
+        }
         const citations = body.citations && body.citations.length > 0 ? [...new Set(body.citations)] : extractUrls(content)
 
         return buildEngineResponse({

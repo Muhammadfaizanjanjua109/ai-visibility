@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { EngineAdapter, EngineResponse, QueryOptions } from '../types'
-import { assertOk, buildEngineResponse, extractUrls, timedQuery } from './shared'
+import { assertOk, buildEngineResponse, EngineResponseError, extractUrls, timedQuery } from './shared'
 
 const DEFAULT_MODEL = 'gemini-2.0-flash'
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
@@ -45,7 +45,10 @@ export class GeminiAdapter implements EngineAdapter {
         })
 
         const candidate = body.candidates?.[0]
-        const content = (candidate?.content?.parts ?? []).map((p) => p.text ?? '').join('')
+        if (!candidate?.content?.parts) {
+            throw new EngineResponseError(this.name, 'missing candidates[0].content.parts')
+        }
+        const content = candidate.content.parts.map((p) => p.text ?? '').join('')
         const groundingUrls = (candidate?.groundingMetadata?.groundingChunks ?? [])
             .map((c) => c.web?.uri)
             .filter((uri): uri is string => Boolean(uri))

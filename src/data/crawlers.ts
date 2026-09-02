@@ -17,7 +17,10 @@ import type { BotInfo } from '../types'
 
 export const AI_CRAWLERS: BotInfo[] = [
     // ---- OpenAI ----
-    // https://developers.openai.com/api/docs/bots (checked 2026-08-03)
+    // https://developers.openai.com/api/docs/bots (checked 2026-08-13)
+    // Also documents OAI-AdsBot as of this check — ad-safety verification
+    // for ads submitted to ChatGPT, not content citation, so it's out of
+    // scope for this package's purpose and deliberately not tracked here.
     {
         name: 'GPTBot',
         company: 'OpenAI',
@@ -25,7 +28,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://developers.openai.com/api/docs/bots',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'ChatGPT-User',
@@ -34,7 +37,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://developers.openai.com/api/docs/bots',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'OAI-SearchBot',
@@ -43,11 +46,11 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://developers.openai.com/api/docs/bots',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Anthropic ----
-    // https://support.claude.com/en/articles/8896518 (checked 2026-08-03)
+    // https://support.claude.com/en/articles/8896518 (checked 2026-08-13)
     // Anthropic's predecessor tokens Claude-Web and ANTHROPIC-AI are
     // explicitly deprecated per Anthropic — do not reintroduce them.
     {
@@ -57,7 +60,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'Claude-User',
@@ -66,7 +69,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'Claude-SearchBot',
@@ -75,11 +78,11 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Perplexity ----
-    // https://docs.perplexity.ai/guides/bots (checked 2026-08-03)
+    // https://docs.perplexity.ai/guides/bots (checked 2026-08-13)
     {
         name: 'PerplexityBot',
         company: 'Perplexity AI',
@@ -87,7 +90,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://docs.perplexity.ai/guides/bots',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'Perplexity-User',
@@ -96,11 +99,16 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://docs.perplexity.ai/guides/bots',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Google ----
-    // https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers (checked 2026-08-03)
+    // https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers (checked 2026-08-13)
+    // Also documents Google-CloudVertexBot as of this check — a crawl a site
+    // owner opts a *specific* site into for building their own Vertex AI
+    // Agent, not a crawler that determines whether AI answers cite this
+    // site. Same "not content citation" rationale as OAI-AdsBot above; not
+    // tracked here for that reason, not because it was missed.
     {
         name: 'Google-Extended',
         company: 'Google',
@@ -108,7 +116,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'Googlebot',
@@ -117,11 +125,11 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'indexing',
         verified: true,
         sourceUrl: 'https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Microsoft ----
-    // https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0 (checked 2026-08-03)
+    // https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0 (checked 2026-08-13)
     {
         name: 'Bingbot',
         company: 'Microsoft',
@@ -129,11 +137,11 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'indexing',
         verified: true,
         sourceUrl: 'https://www.bing.com/webmasters/help/which-crawlers-does-bing-use-8c184ec0',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Common Crawl ----
-    // https://commoncrawl.org/ccbot (checked 2026-08-03)
+    // https://commoncrawl.org/ccbot (checked 2026-08-13)
     {
         name: 'CCBot',
         company: 'Common Crawl',
@@ -141,11 +149,11 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://commoncrawl.org/ccbot',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Amazon ----
-    // https://developer.amazon.com/amazonbot (checked 2026-08-03)
+    // https://developer.amazon.com/amazonbot (checked 2026-08-13)
     // Amazon runs the same three-tier split as OpenAI/Anthropic/Perplexity:
     // a training crawler, a search-surfacing crawler, and a user-triggered
     // fetcher (for Alexa). Amzn-SearchBot/Amzn-User explicitly do not crawl
@@ -157,7 +165,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://developer.amazon.com/amazonbot',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'Amzn-SearchBot',
@@ -166,7 +174,7 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://developer.amazon.com/amazonbot',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
     {
         name: 'Amzn-User',
@@ -175,11 +183,15 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'search',
         verified: true,
         sourceUrl: 'https://developer.amazon.com/amazonbot',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Meta ----
-    // https://developers.facebook.com/docs/sharing/webmasters/crawler (checked 2026-08-03)
+    // https://developers.facebook.com/docs/sharing/webmasters/crawler (checked 2026-08-13)
+    // This page now also documents FacebookExternalHit (link-preview
+    // fetching, pre-dates the AI-crawler era) and Meta-ExternalAds
+    // (advertising) — both out of scope for the same "not content citation"
+    // reason as OAI-AdsBot above, so neither is tracked here.
     {
         name: 'meta-externalagent',
         company: 'Meta',
@@ -187,11 +199,29 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://developers.facebook.com/docs/sharing/webmasters/crawler',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
+    },
+    {
+        name: 'Meta-WebIndexer',
+        company: 'Meta',
+        userAgentPattern: 'meta-webindexer',
+        purpose: 'search',
+        verified: true,
+        sourceUrl: 'https://developers.facebook.com/docs/sharing/webmasters/crawler',
+        lastChecked: '2026-08-13',
+    },
+    {
+        name: 'Meta-ExternalFetcher',
+        company: 'Meta',
+        userAgentPattern: 'meta-externalfetcher',
+        purpose: 'search',
+        verified: true,
+        sourceUrl: 'https://developers.facebook.com/docs/sharing/webmasters/crawler',
+        lastChecked: '2026-08-13',
     },
 
     // ---- Apple ----
-    // https://support.apple.com/en-us/119829 (checked 2026-08-03)
+    // https://support.apple.com/en-us/119829 (checked 2026-08-13)
     {
         name: 'Applebot-Extended',
         company: 'Apple',
@@ -199,22 +229,31 @@ export const AI_CRAWLERS: BotInfo[] = [
         purpose: 'training',
         verified: true,
         sourceUrl: 'https://support.apple.com/en-us/119829',
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
 
     // ---- ByteDance ----
     // No official ByteDance documentation exists for this crawler as of the
-    // last check — every source is third-party. Included because the token
-    // is real and widely observed, but flagged unverified rather than
-    // presented with the same confidence as the entries above.
+    // last check (re-confirmed 2026-08-13) — every source is third-party.
+    // Included because the token is real and widely observed, but flagged
+    // unverified rather than presented with the same confidence as the
+    // entries above.
     {
         name: 'Bytespider',
         company: 'ByteDance',
         userAgentPattern: 'bytespider',
         purpose: 'training',
         verified: false,
-        lastChecked: '2026-08-03',
+        lastChecked: '2026-08-13',
     },
+
+    // ---- Checked 2026-08-13, not added: no official vendor documentation ----
+    // xAI (Grok) — publishes no crawler documentation; independent research
+    // reports Grok's live web fetches use generic browser user-agents, not
+    // a stable documented token, so there is nothing reliable to match on.
+    // DeepSeek — publishes no crawler user-agent at all; its fetches are
+    // reported as indistinguishable from ordinary browser traffic. Add
+    // entries for either only once each vendor ships real documentation.
 
     // ---- Not re-verified this audit pass ----
     // Present in earlier versions of this list; left as-is rather than
