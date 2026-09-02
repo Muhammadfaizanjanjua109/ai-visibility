@@ -9,7 +9,8 @@ import type { AuditCategoryKey } from '../src/types'
 const CATEGORY_WEIGHTS = ContentAnalyzer.CATEGORY_WEIGHTS
 const analyzer = new ContentAnalyzer()
 
-const ALL_CATEGORY_KEYS: AuditCategoryKey[] = ['crawlability', 'structure', 'entitySignals', 'citationReadiness', 'content', 'authority']
+// Seven in schemaVersion 3: 'answerPlacement' was split out of 'structure'.
+const ALL_CATEGORY_KEYS: AuditCategoryKey[] = ['crawlability', 'answerPlacement', 'citationReadiness', 'entitySignals', 'structure', 'content', 'authority']
 
 const RICH_HTML = `
 <html>

@@ -285,14 +285,38 @@ export interface ScoringDimension {
 
 // ---- AI Readiness Engine (v0.6.0) ----
 
-/** The six top-level AI Readiness categories. See `CATEGORY_WEIGHTS` for weights/descriptions. */
+/**
+ * The seven top-level AI Readiness categories (schemaVersion 3). See
+ * `CATEGORY_WEIGHTS` for weights/descriptions.
+ *
+ * `answerPlacement` is new in v3: it was previously one check inside
+ * `structure`, which meant answer front-loading carried ~4% of the overall
+ * score despite being the strongest single predictor in our own 50-site
+ * study. Folding a strong content-placement signal into a weak structural
+ * one understated it, so it is now its own category. See docs/scoring.md.
+ *
+ * Every category here is computable from a single page's HTML/headers plus
+ * site-level files (robots.txt, llms.txt, ai.txt, sitemap). Anything that
+ * needs a live engine query is measurement-level and belongs in
+ * `VisibilityVectorObservation`, not here.
+ */
 export type AuditCategoryKey =
     | 'crawlability'
-    | 'structure'
-    | 'entitySignals'
+    | 'answerPlacement'
     | 'citationReadiness'
+    | 'entitySignals'
+    | 'structure'
     | 'content'
     | 'authority'
+
+/**
+ * How well-supported a dimension's weight is by published evidence.
+ *
+ * Deliberately coarse. `strong` is reserved for effects that are
+ * definitional or replicated across independent studies; a single
+ * correlational finding — including our own — is `moderate` at best.
+ */
+export type EvidenceGrade = 'strong' | 'moderate' | 'weak'
 
 /** One entry of the published, fixed AI Readiness category weights (see `CATEGORY_WEIGHTS`). */
 export interface AuditCategoryWeight {
@@ -300,6 +324,15 @@ export interface AuditCategoryWeight {
     label: string
     weight: number
     description: string
+    /** How well-supported this dimension's weight is. See `EvidenceGrade`. */
+    evidenceGrade: EvidenceGrade
+    /**
+     * The specific finding this weight rests on, named in prose. Findings
+     * are cited descriptively rather than by identifier: we publish this
+     * file to downstream vendors, and a wrong arXiv ID in a vendored file
+     * is worse than no ID at all.
+     */
+    rationale: string
 }
 
 export type AuditSeverity = 'critical' | 'warning' | 'suggestion'
@@ -355,6 +388,228 @@ export interface AuditResult {
     score: number
     /** @deprecated Use `categories` instead. */
     dimensions: Record<string, number>
+}
+
+// ---- Page-level scoring schema (scoring-weights.json v3) ----
+
+/**
+ * Shape of the published `dist/scoring-weights.json`. Page-level only:
+ * every dimension is computable from one page's HTML/headers plus
+ * site-level files. Measurement-level signal lives in a separate file with
+ * its own independent `schemaVersion` — see `VisibilityVectorFile`.
+ *
+ * `legacy_dimensions` carries the pre-v0.6.0 flat GEO dimensions, retained
+ * only so already-shipped consumers that parse the old shape have something
+ * to pin to while they migrate. New consumers must read `dimensions`.
+ */
+export interface ScoringWeightsFile {
+    schemaVersion: number
+    packageVersion: string
+    generatedAt: string
+    source: string
+    docs: string
+    /** What this file does and does not claim to measure. New in v3. */
+    scope: {
+        level: 'page'
+        computableFrom: string[]
+        excludes: string
+    }
+    dimensions: AuditCategoryWeight[]
+    legacy_dimensions: ScoringDimension[]
+}
+
+/**
+ * A category key is present only when some check actually measured it for
+ * this page. Absent means not-applicable — a page with no commercial
+ * surface, or a fetch that never resolved site-level files — and is
+ * excluded from both the numerator and the weight denominator rather than
+ * scored as 0. Absent is not zero.
+ */
+export type CategoryScores = Partial<Record<AuditCategoryKey, number>>
+
+export interface OverallScoreResult {
+    /** Weighted 0-100 score, renormalized over only the categories present in `scores`. */
+    score: number
+    /** Categories with no applicable check — excluded from both the score and the weight renormalization. */
+    skippedCategories: AuditCategoryKey[]
+    /** True when a crawler hard block forced `score` to 0 regardless of every other category. */
+    hardGated: boolean
+}
+
+// ---- Measurement-level schema (visibility-vector.json v1) ----
+
+/**
+ * Why a field has no value. Never `undefined` — an absent measurement must
+ * be distinguishable from a measurement of zero, and "this engine cannot
+ * report it" must be distinguishable from "we did not look".
+ */
+export type ObservationStatus =
+    /** The engine reported it and the value is trustworthy. */
+    | 'observed'
+    /** This engine structurally cannot report it (e.g. OpenAI/Anthropic give no search-activation signal). */
+    | 'not-observable'
+    /** Observable in principle, but this run did not evaluate it (e.g. fidelity with no claim-checking configured). */
+    | 'not-evaluated'
+
+/** A value that may be legitimately absent, carrying the reason for its absence. */
+export interface Observed<T> {
+    value: T | null
+    status: ObservationStatus
+}
+
+/**
+ * Whether the engine performed a live web retrieval for this run.
+ *
+ * Tri-state, not boolean, and deliberately so: of the four shipped adapters
+ * only Perplexity (always searches) and Gemini (via `groundingMetadata`)
+ * expose this at all. Recording `false` for OpenAI and Anthropic would
+ * assert something we did not observe, and every downstream rate would
+ * inherit that fabrication.
+ */
+export type SearchActivation = 'activated' | 'not-activated' | 'unknown'
+
+/**
+ * How a single run terminated. Non-`observed` outcomes are retained in
+ * every denominator: a run that errored still consumed an opportunity to be
+ * cited, and dropping it inflates every rate computed over it.
+ */
+export type RunOutcome = 'observed' | 'engine-error' | 'empty-response'
+
+/** Which measurement-level fields a given engine adapter is capable of reporting. */
+export interface EngineObservability {
+    engine: string
+    searchActivation: boolean
+    retrievedSources: boolean
+    contextPosition: boolean
+    citations: boolean
+}
+
+/**
+ * One (query, engine, run) observation — the atomic unit the visibility
+ * vector is built from. Produced per run by `MeasurementEngine`, including
+ * for runs that failed or returned nothing.
+ */
+export interface VisibilityVectorObservation {
+    prompt: string
+    promptCluster: string
+    engine: string
+    model: string
+    /** 1-indexed repetition number for this (prompt, engine) pair. */
+    run: number
+    observedAt: number
+    outcome: RunOutcome
+
+    // -- Discoverability --
+    searchActivation: SearchActivation
+
+    // -- Retrieval presence --
+    /** Count of distinct sources the engine retrieved, when the engine reports them. */
+    retrievedSourceCount: Observed<number>
+    /** Whether any retrieved source belonged to the tracked brand. */
+    brandRetrieved: Observed<boolean>
+
+    // -- Context position --
+    /** Rank of the brand's source within the retrieved context, where the engine exposes ordering. */
+    contextPosition: Observed<number>
+
+    // -- Citation --
+    brandCited: boolean
+    citedUrls: string[]
+    brandCitedUrlCount: number
+
+    // -- Prominence --
+    mentioned: boolean
+    recommended: boolean
+    /** 1-indexed first-mention order among all tracked names; null when not mentioned. */
+    mentionRank: Observed<number>
+
+    // -- Fidelity --
+    /** Claims attributed to the brand that were checked against the source page. */
+    claimsChecked: Observed<number>
+    /** Of those, how many were reproduced accurately. */
+    claimsAccurate: Observed<number>
+}
+
+/**
+ * The three denominators of the citation chain, kept separate so no rate is
+ * ever computed against a silently filtered population.
+ *
+ * Each is a subset of the one above it:
+ * `runsCited` subset-of `runsRetrieved` subset-of `runsActivated` subset-of `runsAttempted`.
+ */
+export interface VisibilityDenominators {
+    /** Every run we tried, including engine errors and empty responses. */
+    runsAttempted: number
+    /** Runs where the engine performed a live retrieval. `unknown` activation does NOT count as activated. */
+    runsActivated: number
+    /** Runs (of the activated ones) that retrieved at least one source. */
+    runsRetrieved: number
+    /** Runs (of the retrieved ones) that cited the brand. */
+    runsCited: number
+    /** Runs whose activation could not be observed — reported so an `unknown`-dominated sample stays visible rather than being folded into `not-activated`. */
+    runsActivationUnknown: number
+}
+
+/**
+ * The decomposition itself:
+ *
+ *   Pr(cited) = Pr(activated) x Pr(retrieved | activated) x Pr(cited | retrieved)
+ *
+ * Reported as separate quantities, never pre-multiplied into a single
+ * citation rate. A low `pCited` caused by an engine that rarely searches is
+ * a completely different problem from one caused by content that never gets
+ * cited once retrieved, and a single scalar cannot tell them apart.
+ *
+ * Conditionals are `null` — not 0, not 1 — when their denominator is empty:
+ * with no activated runs, Pr(retrieved | activated) is undefined, not zero.
+ */
+export interface VisibilityDecomposition {
+    denominators: VisibilityDenominators
+    /** runsActivated / runsAttempted. Null only when no runs were attempted at all. */
+    pActivated: number | null
+    /** runsRetrieved / runsActivated. Null when nothing activated. */
+    pRetrievedGivenActivated: number | null
+    /** runsCited / runsRetrieved. Null when nothing was retrieved. */
+    pCitedGivenRetrieved: number | null
+    /** runsCited / runsAttempted — the unconditional rate. Derived; the chain identity is asserted in tests. */
+    pCited: number | null
+}
+
+/** Shape of the published `dist/visibility-vector.json` — a field manifest for measurement-level observations. */
+export interface VisibilityVectorFile {
+    schemaVersion: number
+    packageVersion: string
+    generatedAt: string
+    source: string
+    docs: string
+    scope: {
+        level: 'measurement'
+        unit: string
+        excludes: string
+    }
+    /** The Pr(cited) chain, published so downstream consumers reconstruct it identically. */
+    decomposition: {
+        identity: string
+        factors: Array<{
+            key: string
+            label: string
+            numerator: string
+            denominator: string
+            nullWhen: string
+        }>
+        retentionRule: string
+    }
+    /** Every field of `VisibilityVectorObservation`, with its null semantics. */
+    fields: Array<{
+        key: string
+        label: string
+        facet: 'identity' | 'discoverability' | 'retrieval' | 'contextPosition' | 'citation' | 'prominence' | 'fidelity'
+        type: string
+        nullable: boolean
+        description: string
+    }>
+    /** Which adapters can observe which facets — so an `unknown`-heavy sample is explicable. */
+    observability: EngineObservability[]
 }
 
 // ---- Monitor ----

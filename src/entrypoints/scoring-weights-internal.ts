@@ -10,3 +10,13 @@
 // ============================================================
 
 export { SCORING_WEIGHTS, CATEGORY_WEIGHTS } from '../analyzer/scoring-weights'
+export {
+    SUPPORTED_SCORING_SCHEMA_VERSION,
+    SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION,
+    assertSupportedSchemaVersion,
+    assertSupportedVisibilityVectorSchemaVersion,
+    loadScoringWeights,
+    assertValidWeights,
+    getCategoryWeights,
+    computeOverallScore,
+} from '../analyzer/scoring-schema'

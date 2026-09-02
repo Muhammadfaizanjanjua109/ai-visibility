@@ -1,6 +1,6 @@
 {
   "name": "ai-visibility",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js or Next.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -136,7 +136,7 @@
     "ai-visibility": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsup && npm run build:shebang && node scripts/generate-crawlers-json.js && node scripts/generate-scoring-weights-json.js",
+    "build": "tsup && npm run build:shebang && node scripts/generate-crawlers-json.js && node scripts/generate-scoring-weights-json.js && node scripts/generate-visibility-vector-json.js",
     "build:shebang": "node -e \"const fs = require('fs'); const path = require('path'); const cliPath = path.join('dist', 'cli', 'index.js'); let content = fs.readFileSync(cliPath, 'utf8'); if (!content.startsWith('#!/usr/bin/env node')) { content = '#!/usr/bin/env node\\n' + content.replace(/^#!.*\\n/, ''); fs.writeFileSync(cliPath, content); }\"",
     "dev": "tsup --watch",
     "test": "vitest run",

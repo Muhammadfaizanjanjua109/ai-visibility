@@ -1,9 +1,10 @@
 # AI Readiness Engine: Categories, Weights, and How to Use It Elsewhere
 
-`ContentAnalyzer.audit()` scores a page across six weighted categories —
-**crawlability, structure, entity signals, citation readiness, content, and
-authority** — each broken into named checks, and combines them into a
-single `overall` score (0-100) using fixed, published weights. No machine
+`ContentAnalyzer.audit()` scores a page across seven weighted, **page-level**
+categories — **crawlability, answer placement, extractable evidence, entity
+signals, structural formatting, content, and authority** — each broken into
+named checks, and combines them into a single `overall` score (0-100) using
+fixed, published weights. No machine
 learning, no black box: every category's contribution is a plain constant,
 defined once in `src/analyzer/scoring-weights.ts` and re-exported as
 `ContentAnalyzer.CATEGORY_WEIGHTS`, and documented here. (That data lives in
@@ -20,19 +21,32 @@ outcome; Google's own guidance is that sites don't need special AI files to
 be found. Treat the score as a prioritized to-do list, not a pass/fail
 grade of AI visibility itself.
 
-## The six categories
+## The seven categories
 
-| Category | Key | Weight | What it checks |
-|---|---|---|---|
-| Crawlability | `crawlability` | 0.20 | Whether AI crawlers can discover and fetch the page at all: robots.txt AI-crawler rules, llms.txt, ai.txt, sitemap discoverability, response time, JavaScript dependency. |
-| Structure | `structure` | 0.20 | Heading hierarchy, semantic HTML landmarks, content-to-noise ratio, answer front-loading, FAQ/How-to patterns. |
-| Entity Signals | `entitySignals` | 0.20 | Organization and Person schema, product/service entity relationships, sameAs links, machine-readable pricing. |
-| Citation Readiness | `citationReadiness` | 0.15 | Fact density, sourced statistics, unique/original data, comparison content, external authoritative references. |
-| Content | `content` | 0.15 | Snippability, topical depth, freshness signals, multi-format support (text/tables/lists). |
-| Authority | `authority` | 0.10 | Author attribution, About/Team signals, contact information, trust signals, external mention readiness (verifiable claims). |
+Every category here is **page-level**: computable from one page's HTML and
+response headers plus site-level files (robots.txt, llms.txt, ai.txt,
+sitemap). Nothing in this file needs a live engine query. Signal that only
+exists as a property of one engine's behaviour for one query at one moment
+is measurement-level and lives in `dist/visibility-vector.json`, which
+versions independently — see [measurement.md](./measurement.md).
 
-Weights sum to 1.0 — enforced by a test (`__tests__/audit-engine.test.ts`),
-so this table can't silently drift from what the code actually computes.
+That split is the point of `schemaVersion` 3. Collapsing both kinds of
+signal into one 0-100 number meant the score silently misrepresented what
+it had actually measured.
+
+| Category | Key | Weight | Evidence | What it checks |
+|---|---|---|---|---|
+| Crawlability | `crawlability` | 0.18 | strong | robots.txt AI-crawler rules, llms.txt, ai.txt, sitemap discoverability, response time, JavaScript dependency. |
+| Answer placement | `answerPlacement` | 0.18 | moderate | Whether a direct answer appears near the top, ahead of preamble. |
+| Extractable evidence | `citationReadiness` | 0.22 | moderate | Verifiable numbers with units, explicit prices, dates, attributed claims, definitions, comparisons, external authoritative references. |
+| Entity Signals | `entitySignals` | 0.16 | moderate | Organization and Person schema, valid JSON-LD, product/service relationships, sameAs links, machine-readable pricing. |
+| Structural formatting | `structure` | 0.10 | weak | Heading hierarchy, semantic HTML landmarks, content-to-noise ratio, FAQ/How-to patterns. |
+| Content | `content` | 0.09 | weak | Snippability, topical depth, freshness signals, multi-format support. |
+| Authority | `authority` | 0.07 | moderate | Author attribution, About/Team signals, contact info, trust signals, verifiable claims. |
+
+Weights sum to 1.0 and none is negative — both enforced by tests
+(`__tests__/scoring-schema.test.ts`) and by the build script, so this table
+can't silently drift from what the code computes.
 
 Each category's score is the equal-weighted average of its own checks (see
 `AuditResult.categories[key].checks` for the full breakdown — every check
@@ -41,14 +55,55 @@ the CLI to see them all, not just the top issues).
 
 ### Why these weights
 
-Crawlability, structure, and entity signals are weighted highest (0.20
-each): a page an AI system can't fetch, can't parse, or can't resolve to a
-known entity fails before citation quality is even relevant. Citation
-readiness and content (0.15 each) are what make a page *worth* citing once
-it's reachable and parseable. Authority is weighted lowest (0.10) — it
-corroborates the other categories rather than standing alone.
+Every weight carries an `evidenceGrade` and a `rationale` naming the
+finding it rests on. Findings are cited **descriptively, never by
+identifier**: this file is vendored by three downstream consumers, and a
+wrong arXiv ID in a vendored file is worse than no ID at all.
+
+Only `crawlability` is graded `strong`, and it earns that by being
+definitional rather than correlational — a page a crawler cannot fetch
+cannot be cited, no study required. Every content-side lever is `moderate`
+or `weak`. That is an honest reading of the current literature, not an
+underclaim. A scalar aggregate is only defensible when its weights map to
+an explicit objective; grading the content levers better than the evidence
+supports would defeat the purpose of grading them at all.
+
+What changed from v2 and why:
+
+- **Answer placement was promoted out of `structure` (≈0.04 → 0.18).** It
+  was one check among five in a category weighted 0.20, so the strongest
+  single predictor in our own 50-site study carried roughly 4% of the
+  overall score while inheriting the weakest-evidenced category's grade.
+- **Extractable evidence rose 0.15 → 0.22.** A 2026 critical survey of 45
+  GEO studies grades evidence-bearing content interventions in the
+  moderate-to-strong band — the highest of any content-side lever it
+  reviews. It is graded `moderate`, the lower end of that band: the survey
+  reports a range across heterogeneous designs, and claiming the upper
+  bound for our single highest weight would overstate what was replicated.
+- **Structural formatting was halved, 0.20 → 0.10.** The survey reports
+  controlled experiments where formatting changes made in isolation —
+  reheading, list-ifying, adding landmarks without changing the underlying
+  content — produced weak effects. Segmentability still matters as a floor,
+  so it keeps a non-trivial weight, but it no longer outranks the evidence
+  the segments contain.
+- **Crawlability dropped 0.20 → 0.18.** No loss of importance: the hard
+  gate, not the weight, carries the consequence.
+
+Note that the check id for answer placement is still
+`struct-answer-frontloading` despite now living in `answerPlacement`. The
+id was deliberately left alone so consumers keyed on check ids keep
+resolving across the reweight.
+
+### No negative weights
+
+There are none, and the schema rejects them. Retrieval risk — the chance a
+rewrite makes a passage *less* likely to be retrieved — is a property of a
+rewrite operation, not a property of a page, and belongs to `fix`, not to
+scoring. Encoding it as a negative weight here would make the score
+non-monotonic in ways no consumer could interpret.
 
 ### Crawlability is a gate, not just a differentiator
+
 
 A hard AI-crawler block — `<meta name="robots" content="noindex">`, or a
 robots.txt that disallows every known AI crawler — zeroes `overall` to 0
@@ -154,8 +209,11 @@ is unchanged and still exported; `audit()` is additive, not a replacement.
 ## Canonical source for other CrawlPod surfaces
 
 This package's scoring is the canonical implementation. crawlpod.com's
-scanner and the CrawlPod WordPress plugin should align to it rather than
-maintaining their own copies of the weights — a hand-maintained duplicate
+scanner, the CrawlPod WordPress plugin, the Shopify app, and the Python
+package should align to it rather than maintaining their own copies of the
+weights — including their own copies of the *arithmetic*: as of v0.9.0 the
+version guard, the weight validation, and `computeOverallScore()` are all
+exported from this package for exactly that reason — a hand-maintained duplicate
 is exactly the kind of drift that already happened once with the crawler
 registry (see `docs/crawler-registry.md`).
 
@@ -176,26 +234,31 @@ against, rather than silently misreading a changed shape. Same rules as
 
 ### `dist/scoring-weights.json` shape
 
-`schemaVersion` 2 (v0.6.0+): `dimensions` is now the six AI Readiness
-categories; the old seven flat GEO dimensions are published alongside as
-`legacy_dimensions` so existing WordPress/Python consumers reading
-`dimensions` as the old shape don't silently misread it — they should
-either switch to `legacy_dimensions` for a drop-in fix, or migrate to the
-new `dimensions` shape.
+`schemaVersion` 3 (v0.9.0+): `dimensions` is the seven **page-level**
+categories, each carrying an `evidenceGrade` and a `rationale`. A `scope`
+block states what the file does and does not claim to measure. The old
+seven flat GEO dimensions remain published as `legacy_dimensions`.
 
 ```json
 {
-  "schemaVersion": 2,
-  "packageVersion": "0.6.0",
-  "generatedAt": "2026-08-12T00:00:00.000Z",
+  "schemaVersion": 3,
+  "packageVersion": "0.9.0",
+  "generatedAt": "2026-09-02T00:00:00.000Z",
   "source": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/src/analyzer/scoring-weights.ts",
   "docs": "https://github.com/Muhammadfaizanjanjua109/ai-visibility/blob/main/docs/scoring.md",
+  "scope": {
+    "level": "page",
+    "computableFrom": ["page HTML", "response headers", "robots.txt", "llms.txt", "ai.txt", "sitemap.xml"],
+    "excludes": "Anything requiring a live engine query — those live in visibility-vector.json."
+  },
   "dimensions": [
     {
       "key": "crawlability",
       "label": "Crawlability",
-      "weight": 0.2,
-      "description": "..."
+      "weight": 0.18,
+      "description": "...",
+      "evidenceGrade": "strong",
+      "rationale": "Definitional rather than correlational: ..."
     }
   ],
   "legacy_dimensions": [
@@ -208,6 +271,92 @@ new `dimensions` shape.
   ]
 }
 ```
+
+### Version guard
+
+Use `assertSupportedSchemaVersion()` rather than hand-rolling a check. It
+rejects a mismatch **in both directions** and names both versions plus what
+changed at each:
+
+```ts
+import { assertSupportedSchemaVersion, loadScoringWeights } from 'ai-visibility'
+
+assertSupportedSchemaVersion(vendored.schemaVersion)      // vs this build (3)
+assertSupportedSchemaVersion(vendored.schemaVersion, 2)   // vs a v2-pinned consumer
+const weights = loadScoringWeights(vendored)              // version + weight-sum validated
+```
+
+Bidirectionality matters because the failure is asymmetric but equally
+silent either way. A **v2 file read as v3** loses `answerPlacement`
+entirely and renormalizes over six weights that no longer sum to 1.0. A
+**v3 file read as v2** picks up a seventh category the consumer has no key
+for and quietly drops 18% of the score. Neither throws on its own; both
+just produce a plausible wrong number.
+
+Assert at module load, not on first use — a schema drift should break every
+consumer of the module immediately, not just the first one unlucky enough
+to call a function.
+
+### Migration from schemaVersion 2
+
+`dist/scoring-weights.json` is vendored by three consumers. **None of them
+can re-vendor this release without a code change.** The guard will throw on
+the Shopify app; the Python package has no guard and would fail silently,
+which is the more urgent of the two.
+
+**Shopify app** (`crawlpod-shopify-1`, vendors via
+`scripts/vendor-crawlpod-assets.ts` against a pinned npm version):
+
+1. `app/lib/audit/scoring.ts` — bump `SUPPORTED_SCORING_SCHEMA_VERSION`
+   from `2` to `3`.
+2. Same file — add `"answerPlacement"` to the `CategoryKey` union. Without
+   it, `getCategoryWeights()` returns a key TypeScript doesn't know and
+   `computeOverallScore()` silently drops 0.18 of weight.
+3. `app/lib/audit/aggregate.ts` — populate `answerPlacement` in
+   `categoryScores`, or leave it absent deliberately. Absent is legitimate
+   (`CategoryScores` is `Partial`, and renormalization handles it), but it
+   must be a decision, not an oversight: absent means the audit reports
+   nothing about the strongest predictor we measure.
+4. `scripts/vendor-crawlpod-assets.ts` — bump `PINNED_VERSION` and
+   optionally add `"visibility-vector.json"` to `VENDORED_FILES`.
+5. `app/lib/audit/scoring.test.ts` — the "six current dimensions" guard and
+   the exact-weights assertion both need updating to the seven v3 weights.
+6. Consider deleting the local `computeOverallScore()` and
+   `assertSupportedSchemaVersion()` in favour of the package's now that
+   both are exported — that duplication is how the consumer's
+   renormalization could drift from the weights it renormalizes over.
+
+Note the pin is currently `0.8.2` while this package is at `0.8.0`; confirm
+which is correct before bumping.
+
+**Python package** (`ai-visibility-python`,
+`src/ai_visibility/scoring_weights.py`):
+
+This one is the silent-failure risk. It is still vendoring **schemaVersion
+1** (`packageVersion` 0.5.0) and reads `data["dimensions"]` with **no
+version guard at all**. A re-vendor today already picks up the v2 six
+category keys, passes them unmapped through `_CAMEL_TO_SNAKE.get()`, and
+returns a completely different dict from `get_default_weights()` without
+raising. v3 makes that worse, not better.
+
+1. Add a version guard before anything else — mirror
+   `assertSupportedSchemaVersion`'s message, naming both the found and the
+   expected version. This is required even if you do nothing else.
+2. Then choose one:
+   - **Stay on the legacy shape**: read `data["legacy_dimensions"]` instead
+     of `data["dimensions"]`. `_CAMEL_TO_SNAKE` keeps working unchanged and
+     the seven flat GEO keys are preserved. Lowest-effort correct fix.
+   - **Migrate to v3 categories**: read `data["dimensions"]`, replace
+     `_CAMEL_TO_SNAKE` with the category keys
+     (`answer_placement`, `citation_readiness`, `entity_signals`,
+     `crawlability`, `structure`, `content`, `authority`), and surface the
+     new `evidence_grade` / `rationale` fields on `ScoringDimension`.
+3. Either way, bump the vendored file and `packageVersion` together, and
+   add a test asserting the vendored `schemaVersion` matches what the
+   loader understands — the Shopify app has one, Python does not.
+
+**WordPress plugin**: not currently reading `dimensions` programmatically;
+no action required, but the same guard applies if that changes.
 
 `schemaVersion` bumps only if the *shape* of the file changes in a way a
 consumer would need to handle explicitly (as it did going from 1 to 2 here,

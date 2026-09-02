@@ -4,6 +4,96 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.0] - 2026-09-02
+
+**Breaking for vendored consumers.** `dist/scoring-weights.json` bumps to
+`schemaVersion` 3. Every consumer must make a code change before
+re-vendoring — see [docs/migration-schemaversion-3.md](./docs/migration-schemaversion-3.md).
+
+Theme: "Say what you measured." The scoring model mixed two fundamentally
+different kinds of signal into one weights file. Some dimensions are
+computable from a page's HTML. Others are properties of a specific engine's
+behaviour for a specific query at a specific moment, and cannot be derived
+from HTML at all. Collapsing both into one 0-100 score meant the score
+silently misrepresented what it had measured. v0.9.0 splits them into two
+files with independent version counters.
+
+### Added
+
+- **`dist/visibility-vector.json`** (`schemaVersion` 1) — the
+  measurement-level schema: a field manifest for per-`(query, engine, run)`
+  observations. Versions independently of `scoring-weights.json`.
+- **Denominator decomposition.** `decomposeVisibility()` reports
+  `Pr(cited) = Pr(activated) × Pr(retrieved | activated) × Pr(cited | retrieved)`
+  as three separate quantities, never pre-multiplied. Runs where search
+  never activated, that errored, or that returned nothing are retained in
+  the denominators — they are outcomes, not absences. One reviewed
+  configuration found 57.8% of ChatGPT repetitions never activated web
+  search; filtering those inflates every rate by more than 2×.
+- **Explicit null semantics.** `Observed<T>` carries a status —
+  `observed` / `not-observable` / `not-evaluated`. No measurement field is
+  ever `undefined`. Conditional probabilities are `null`, not `0`, when
+  their denominator is empty.
+- **`searchActivation` is tri-state** (`activated` / `not-activated` /
+  `unknown`), with `unknown` counting toward neither and tracked separately
+  in `runsActivationUnknown`. Forced by reality: only the Perplexity and
+  Gemini adapters can observe activation at all.
+- **`ENGINE_OBSERVABILITY`** — published per-engine capability table, so a
+  low `pActivated` is distinguishable from a sample where nothing was
+  observable.
+- **`evidenceGrade` and `rationale` on every scoring dimension.** Findings
+  are cited descriptively, never by identifier — this file is vendored, and
+  an unverifiable ID in a vendored file is worse than no ID.
+- **`assertSupportedSchemaVersion()`, `loadScoringWeights()`,
+  `assertValidWeights()`, `getCategoryWeights()`, `computeOverallScore()`**
+  are now exported from this package. They previously existed only as
+  reimplementations inside consumers, which is how a consumer's
+  renormalization could drift from the weights it renormalizes over. The
+  guard rejects a mismatch in **both** directions and names both versions.
+- **`assertSupportedVisibilityVectorSchemaVersion()`** — separate constant,
+  separate error text. A matching scoring version never implies a matching
+  vector version.
+
+### Changed
+
+- **`scoring-weights.json` is page-level only**, with a `scope` block
+  stating what it does and does not claim to measure.
+- **`answerPlacement` is its own category** (0.18), split out of
+  `structure`. It was one check among five in a 0.20 category, so the
+  strongest single predictor in our 50-site study carried ~4% of the
+  overall score while inheriting the weakest-evidenced category's grade.
+- **Extractable evidence up 0.15 → 0.22**, `citationReadiness` key
+  unchanged, relabelled from "Citation Readiness". A 2026 critical survey
+  of 45 GEO studies grades evidence-bearing interventions moderate-to-strong
+  — the highest of any content-side lever it reviews.
+- **Structural formatting halved, 0.20 → 0.10**, relabelled from
+  "Structure". The survey reports controlled experiments where
+  formatting-only changes produced weak effects.
+- Remaining reweights: `crawlability` 0.20 → 0.18, `entitySignals`
+  0.20 → 0.16, `content` 0.15 → 0.09, `authority` 0.10 → 0.07.
+
+### Unchanged (deliberately)
+
+- **The crawlability hard gate.** A `<meta name="robots">` noindex or a
+  robots.txt blocking every known AI crawler still zeroes `overall`
+  outright. Covered by existing tests plus new ones on the extracted
+  `computeOverallScore()`.
+- **Check ids.** `struct-answer-frontloading` keeps its id despite moving
+  category, so consumers keyed on ids keep resolving.
+- **`CategoryScores` stays `Partial`** — absent means not-applicable, not
+  zero, and is excluded from both numerator and weight denominator.
+- **No negative weights, anywhere.** Retrieval risk is a property of a
+  rewrite operation, not a scoring dimension; it belongs to `fix`. The
+  schema rejects negative weights at load and at build time.
+- `MeasurementEngine`'s sampling and CI logic. No new checks were added.
+
+### Tests
+
+293 → 352. New coverage for the v2/v3 version guard in both directions,
+weights summing to 1.0 with no negatives, the hard gate still zeroing,
+renormalization after the reweight, and denominator decomposition including
+the zero-activation edge case.
+
 ## [0.8.0] - 2026-08-12
 
 Minor, not patch: two new subpath exports (`ai-visibility/citations`,

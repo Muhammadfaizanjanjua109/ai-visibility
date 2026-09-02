@@ -396,9 +396,13 @@ const CHECKS: CheckDef[] = [
         },
     },
     {
+        // Category is 'answerPlacement', not 'structure', despite the
+        // 'struct-' id prefix: the id is left alone deliberately so
+        // downstream consumers keyed on check ids keep resolving across the
+        // v3 reweight. See CATEGORY_WEIGHTS for why it moved.
         id: 'struct-answer-frontloading',
         label: 'Answer front-loading',
-        category: 'structure',
+        category: 'answerPlacement',
         run: ($) => {
             const h1 = $('h1').first()
             if (!h1.length) {
@@ -1077,9 +1081,10 @@ export function runAudit(html: string, context: AnalysisContext = {}): AuditResu
     const issues: AuditIssue[] = []
     const categoryChecks: Record<AuditCategoryKey, AuditCheckResult[]> = {
         crawlability: [],
-        structure: [],
-        entitySignals: [],
+        answerPlacement: [],
         citationReadiness: [],
+        entitySignals: [],
+        structure: [],
         content: [],
         authority: [],
     }
