@@ -145,9 +145,12 @@ jobs:
           # server/routes/robots.txt.ts (Nitro serves public/ before dynamic
           # routes) — this is the exact bug this workflow exists to catch.
           rm -f nuxt-scaffold/public/robots.txt
+      - name: Update npm to resolve dependency resolution issues
+        run: npm install -g npm@latest
       - name: Install dependencies + the current repo's ai-visibility build
         working-directory: nuxt-scaffold
         run: |
+          npm cache clean --force
           npm install
           npm install /tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}
       - name: Build
@@ -196,9 +199,12 @@ jobs:
           cp examples/react-router-app/app/routes.ts rr-scaffold/app/routes.ts
           cp examples/react-router-app/app/routes/robots-txt.ts rr-scaffold/app/routes/robots-txt.ts
           cp examples/react-router-app/app/routes/llms-txt.ts rr-scaffold/app/routes/llms-txt.ts
+      - name: Update npm to resolve dependency resolution issues
+        run: npm install -g npm@latest
       - name: Install dependencies + the current repo's ai-visibility build
         working-directory: rr-scaffold
         run: |
+          npm cache clean --force
           npm install
           npm install /tmp/tarball/${{ needs.build-package.outputs.tarball_filename }}
       - name: Build
