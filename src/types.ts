@@ -482,6 +482,19 @@ export interface EngineObservability {
     retrievedSources: boolean
     contextPosition: boolean
     citations: boolean
+    /**
+     * The concrete response field the adapter reads to obtain retrieval
+     * signal, named so a consumer can verify the claim against the provider's
+     * API docs rather than taking this table on faith.
+     */
+    mechanism: string
+    /**
+     * True when `searchActivation` is only observable if the adapter was
+     * called with `QueryOptions.webSearch` enabled. An engine that is never
+     * asked to search cannot report that it didn't — the honest value in that
+     * case is `unknown`, not `not-activated`.
+     */
+    requiresWebSearch: boolean
 }
 
 /**
@@ -548,6 +561,14 @@ export interface VisibilityDenominators {
     runsCited: number
     /** Runs whose activation could not be observed — reported so an `unknown`-dominated sample stays visible rather than being folded into `not-activated`. */
     runsActivationUnknown: number
+    /**
+     * Runs that activated but whose retrieved-source set the engine does not
+     * enumerate (the OpenAI adapter proves search ran without listing what it
+     * read). They stay in `runsActivated`, so they legitimately depress
+     * `pRetrievedGivenActivated` — that factor is only interpretable when
+     * this is 0. Decompose per-engine, or read this before trusting it.
+     */
+    runsRetrievalUnknown: number
 }
 
 /**
@@ -657,7 +678,51 @@ export interface QueryOptions {
     temperature?: number
     /** @default 1024 */
     maxTokens?: number
+    /**
+     * Request live web retrieval from the engine.
+     *
+     * `true` (the default as of v0.10.0) is what makes `searchActivation` and
+     * `citationProvenance` meaningful: without it the engine answers from
+     * parametric memory, every URL in the output is recited rather than
+     * retrieved, and a citation rate computed over those URLs measures
+     * recall, not citation.
+     *
+     * Set `false` to keep the pre-v0.10.0 behaviour — no tool is sent, and
+     * the response is reported as `searchActivation: 'unknown'` with
+     * `citationProvenance: 'prose-extraction'` so nothing downstream mistakes
+     * it for observed retrieval. Web search is billed per call by every
+     * provider that offers it; this is the switch for turning that off.
+     *
+     * Ignored by Perplexity, which always retrieves.
+     *
+     * @default true
+     */
+    webSearch?: boolean
+    /**
+     * Cap on searches the engine may run per call, where the provider
+     * supports one (Anthropic's `max_uses`). A cost bound, not a correctness
+     * knob.
+     * @default 5
+     */
+    maxSearchUses?: number
 }
+
+/**
+ * Where an `EngineResponse.citations` array came from — the difference
+ * between a measured citation and a plausible-looking one.
+ *
+ * The distinction is the entire reason this field exists. Regex-scraping
+ * URLs out of prose cannot tell a source the engine actually read from one
+ * the model reproduced from memory, and treating the two alike is how a
+ * citation rate ends up measuring something other than citation.
+ */
+export type CitationProvenance =
+    /** From the engine's own retrieval fields (grounding chunks, search results, url_citation annotations). Trustworthy. */
+    | 'retrieval'
+    /** Regex-extracted from the response text because no retrieval was requested. Indistinguishable from recall — do not count as a citation. */
+    | 'prose-extraction'
+    /** Retrieval was requested and the engine did not search, so there is nothing to cite. Distinct from an empty prose extraction. */
+    | 'none'
 
 /**
  * Normalized response from any `EngineAdapter`. `brands` is always `[]` at
@@ -670,11 +735,26 @@ export interface EngineResponse {
     model: string
     prompt: string
     response: string
-    /** URLs mentioned/cited in the response, best-effort per engine (see docs/measurement.md). */
+    /**
+     * URLs the engine cited. **Read `citationProvenance` before using this**:
+     * on `'prose-extraction'` these are scraped from the response text and
+     * carry no evidence that the engine retrieved anything.
+     */
     citations: string[]
     brands: string[]
     timestamp: number
     latencyMs: number
+
+    /** Whether the engine performed a live retrieval for this call. `'unknown'` when retrieval was not requested. */
+    searchActivation: SearchActivation
+    /** How `citations` was obtained. */
+    citationProvenance: CitationProvenance
+    /**
+     * Sources the engine reported retrieving, when it enumerates them.
+     * `not-observable` where the provider proves a search ran but does not
+     * list what it read — an empty array would falsely assert it read nothing.
+     */
+    retrievedSources: Observed<string[]>
 }
 
 export interface EngineAdapter {
@@ -723,6 +803,12 @@ export interface MeasureConfig {
     /** Repetitions per prompt per engine. @default 3, max 10 */
     runs?: number
     competitors?: string[]
+    /**
+     * Passed through to every adapter call. Defaults to requesting web
+     * search — measuring citation against engines that were never asked to
+     * retrieve measures the wrong thing (see `QueryOptions.webSearch`).
+     */
+    queryOptions?: QueryOptions
 }
 
 export interface RunResult {
@@ -735,6 +821,10 @@ export interface RunResult {
     citedUrls: string[]
     competitorsMentioned: string[]
     rawResponse: string
+    /** Whether the engine retrieved for this run. Carried up from the adapter so a rate over `citedUrls` can be qualified. */
+    searchActivation: SearchActivation
+    /** Whether `citedUrls` is evidence of retrieval or scraped from prose. */
+    citationProvenance: CitationProvenance
 }
 
 export interface PromptResult {
@@ -779,6 +869,18 @@ export interface MeasurementReport {
     competitors: Record<string, BrandVisibility>
     perEngine: Record<string, EngineVisibility>
     perPrompt: PromptResult[]
+    /**
+     * Every attempted run as a measurement-level observation, **including
+     * runs that errored or returned nothing**. This is the input
+     * `decomposeVisibility()` expects, and the reason it exists separately
+     * from `perPrompt`: `perPrompt` drops failed runs, so a rate computed
+     * over it silently measures the subset that happened to succeed.
+     *
+     * `summary.citationRate` and friends predate this and still compute over
+     * successful calls only. Prefer `decomposeVisibility(observations)`
+     * wherever the denominator matters.
+     */
+    observations: VisibilityVectorObservation[]
     stats: {
         totalQueries: number
         totalRuns: number

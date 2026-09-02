@@ -1,6 +1,6 @@
 {
   "name": "ai-visibility",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Auto-generate robots.txt, llms.txt, and JSON-LD schema to make your Node.js or Next.js app visible and citable by AI crawlers (GPTBot, ClaudeBot, PerplexityBot) and track AI bot traffic.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -120,16 +120,36 @@
   },
   "typesVersions": {
     "*": {
-      "detector": ["./dist/detector.d.ts"],
-      "schema": ["./dist/schema.d.ts"],
-      "generators": ["./dist/generators.d.ts"],
-      "express": ["./dist/express.d.ts"],
-      "next": ["./dist/next.d.ts"],
-      "engines": ["./dist/engines.d.ts"],
-      "prompts": ["./dist/prompts.d.ts"],
-      "measure": ["./dist/measure.d.ts"],
-      "citations": ["./dist/citations.d.ts"],
-      "competitor": ["./dist/competitor.d.ts"]
+      "detector": [
+        "./dist/detector.d.ts"
+      ],
+      "schema": [
+        "./dist/schema.d.ts"
+      ],
+      "generators": [
+        "./dist/generators.d.ts"
+      ],
+      "express": [
+        "./dist/express.d.ts"
+      ],
+      "next": [
+        "./dist/next.d.ts"
+      ],
+      "engines": [
+        "./dist/engines.d.ts"
+      ],
+      "prompts": [
+        "./dist/prompts.d.ts"
+      ],
+      "measure": [
+        "./dist/measure.d.ts"
+      ],
+      "citations": [
+        "./dist/citations.d.ts"
+      ],
+      "competitor": [
+        "./dist/competitor.d.ts"
+      ]
     }
   },
   "bin": {
@@ -138,7 +158,7 @@
   "scripts": {
     "build": "tsup && npm run build:shebang && node scripts/generate-crawlers-json.js && node scripts/generate-scoring-weights-json.js && node scripts/generate-visibility-vector-json.js",
     "build:shebang": "node -e \"const fs = require('fs'); const path = require('path'); const cliPath = path.join('dist', 'cli', 'index.js'); let content = fs.readFileSync(cliPath, 'utf8'); if (!content.startsWith('#!/usr/bin/env node')) { content = '#!/usr/bin/env node\\n' + content.replace(/^#!.*\\n/, ''); fs.writeFileSync(cliPath, content); }\"",
-    "dev": "tsup --watch",
+    "dev": "node api.js && tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -146,7 +166,7 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "ready-to-publish": "npm run check && echo '✅ All checks passed! Bump the version, update CHANGELOG.md, commit, then git tag vX.Y.Z && git push origin vX.Y.Z to trigger the publish workflow.'",
+    "ready-to-publish": "npm run check && echo '\u2705 All checks passed! Bump the version, update CHANGELOG.md, commit, then git tag vX.Y.Z && git push origin vX.Y.Z to trigger the publish workflow.'",
     "prepare": "node -e \"process.env.CI || require('child_process').execSync('husky install', { stdio: 'inherit' })\"",
     "prepublishOnly": "npm run build && npm run test",
     "publish:npm": "npm run check && npm publish --registry https://registry.npmjs.org/"
@@ -190,7 +210,9 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "cheerio": "^1.0.0",
-    "commander": "^12.0.0"
+    "commander": "^12.0.0",
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

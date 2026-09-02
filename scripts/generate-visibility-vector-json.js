@@ -25,13 +25,33 @@
 const fs = require('fs')
 const path = require('path')
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 const { ENGINE_OBSERVABILITY } = require(path.join(__dirname, '..', 'dist', 'measure.js'))
 const { version: packageVersion } = require(path.join(__dirname, '..', 'package.json'))
 
 if (!Array.isArray(ENGINE_OBSERVABILITY) || ENGINE_OBSERVABILITY.length === 0) {
     throw new Error('ENGINE_OBSERVABILITY is empty or missing from dist/measure.js — refusing to publish a visibility-vector.json that claims nothing is observable')
+}
+
+// The observability table is the thing a consumer uses to decide whether a
+// low pActivated is a finding or an artifact. An unexplained row makes that
+// call impossible, so every row must name the response field it reads and
+// state whether that reading depends on webSearch being enabled.
+for (const row of ENGINE_OBSERVABILITY) {
+    if (typeof row.mechanism !== 'string' || row.mechanism.length < 20) {
+        throw new Error(
+            `ENGINE_OBSERVABILITY row for "${row.engine}" has no substantive "mechanism" — name the concrete response field the adapter reads, so the claim is verifiable against the provider's docs rather than taken on faith`
+        )
+    }
+    if (typeof row.requiresWebSearch !== 'boolean') {
+        throw new Error(
+            `ENGINE_OBSERVABILITY row for "${row.engine}" is missing "requiresWebSearch" — without it a consumer cannot tell an engine that declined to search from one that was never asked`
+        )
+    }
+    if (row.searchActivation && row.retrievedSources === undefined) {
+        throw new Error(`ENGINE_OBSERVABILITY row for "${row.engine}" claims searchActivation without declaring retrievedSources`)
+    }
 }
 
 const DECOMPOSITION = {
@@ -66,6 +86,8 @@ const DECOMPOSITION = {
             nullWhen: 'runsAttempted === 0. Computed directly, not as the product of the three factors above — the two agree whenever all factors are defined, which is asserted in tests rather than relied on.',
         },
     ],
+    interpretationRule:
+        'pRetrievedGivenActivated is only interpretable when runsRetrievalUnknown is 0. Runs against an engine that proves a search ran without enumerating what it read (OpenAI) stay in runsActivated but can never enter runsRetrieved, so they depress that factor for a measurement reason rather than a retrieval one. Decompose per-engine, or read runsRetrievalUnknown before trusting the middle factor.',
     retentionRule:
         'Every attempted run stays in runsAttempted, including engine-error and empty-response outcomes and runs where search never activated. These are outcomes, not absences: a run that errored still consumed an opportunity to be cited. One reviewed configuration found 57.8% of ChatGPT repetitions never activated web search — filtering those would have reported a citation rate more than twice its true value. searchActivation "unknown" counts toward NEITHER activated nor not-activated; it is tracked separately in runsActivationUnknown so a sample dominated by engines that cannot report activation stays visible as such.',
 }
@@ -81,16 +103,16 @@ const FIELDS = [
     F('observedAt', 'Observed at', 'identity', 'epoch-ms', false, 'When the observation was recorded. Engine behaviour is time-varying; an observation without a timestamp is not reproducible.'),
     F('outcome', 'Run outcome', 'identity', '"observed" | "engine-error" | "empty-response"', false, 'How the run terminated. Non-observed outcomes are RETAINED in every denominator.'),
 
-    F('searchActivation', 'Search activation', 'discoverability', '"activated" | "not-activated" | "unknown"', false, 'Whether the engine performed a live retrieval. Tri-state, not boolean: most adapters cannot observe this, and recording false for them would assert something never measured.'),
+    F('searchActivation', 'Search activation', 'discoverability', '"activated" | "not-activated" | "unknown"', false, 'Whether the engine performed a live retrieval, read from a named response field per engine (see observability[].mechanism). Tri-state, not boolean: an engine called without web search enabled cannot report that it declined to search, and recording false there would assert something never measured. "unknown" counts toward neither.'),
 
-    F('retrievedSourceCount', 'Retrieved source count', 'retrieval', 'Observed<integer>', true, 'Distinct sources the engine retrieved. null with status not-observable for engines that do not expose retrieval.'),
+    F('retrievedSourceCount', 'Retrieved source count', 'retrieval', 'Observed<integer>', true, 'Distinct sources the engine retrieved. not-observable — never 0 — for an engine that proves a search ran without enumerating what it read; 0 would assert it read nothing.'),
     F('brandRetrieved', 'Brand retrieved', 'retrieval', 'Observed<boolean>', true, 'Whether any retrieved source belonged to the tracked brand.'),
 
     F('contextPosition', 'Context position', 'contextPosition', 'Observed<integer>', true, 'Rank of the brand source within the retrieved context. Currently not-observable on every shipped adapter — none exposes context ordering.'),
 
-    F('brandCited', 'Brand cited', 'citation', 'boolean', false, 'Whether a cited URL resolved to the brand.'),
+    F('brandCited', 'Brand cited', 'citation', 'boolean', false, 'Whether a retrieval-backed cited URL resolved to the brand. URLs scraped out of prose never set this: a URL the model reproduced from memory is recall, not citation.'),
     F('citedUrls', 'Cited URLs', 'citation', 'string[]', false, 'All URLs the engine cited. Empty array is a real observation, not a missing one.'),
-    F('brandCitedUrlCount', 'Brand cited URL count', 'citation', 'integer', false, 'How many of citedUrls resolved to the brand.'),
+    F('brandCitedUrlCount', 'Brand cited URL count', 'citation', 'integer', false, 'How many of citedUrls resolved to the brand, counted only when their provenance is retrieval.'),
 
     F('mentioned', 'Mentioned', 'prominence', 'boolean', false, 'Whether the brand appears in the response text.'),
     F('recommended', 'Recommended', 'prominence', 'boolean', false, 'Whether the brand appears in a positive-recommendation context.'),

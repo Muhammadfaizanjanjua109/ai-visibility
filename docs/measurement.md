@@ -162,6 +162,12 @@ citations without exposing retrieval (see observability below); without the
 nesting those would produce `runsCited > runsRetrieved` and a conditional
 probability above 1.
 
+Two counters sit outside the chain and exist to stop it being misread:
+`runsActivationUnknown` (activation not observable) and
+`runsRetrievalUnknown` (activated, but the engine does not say what it
+read). Neither enters a numerator. Check both before drawing a conclusion
+from a low factor.
+
 Why three numbers and not one: a low `pCited` caused by an engine that
 rarely searches calls for a completely different response than one caused
 by content that never gets cited once retrieved. A scalar cannot tell those
@@ -223,32 +229,98 @@ are defined, which is asserted in tests rather than relied on.
 `'activated' | 'not-activated' | 'unknown'` — and `'unknown'` counts toward
 **neither**, tracked separately in `runsActivationUnknown`.
 
-This is forced by what the adapters can actually see:
+As of v0.10.0 every adapter requests retrieval by default and reads
+activation off a named response field:
 
-| Engine | Search activation | Retrieved sources | Context position | Citations |
+| Engine | Activation signal | Retrieved sources | Context position | Citations |
 |---|---|---|---|---|
-| Perplexity | ✅ | ✅ | ❌ | ✅ |
-| Gemini | ✅ (`groundingMetadata`) | ✅ | ❌ | ✅ |
-| OpenAI | ❌ | ❌ | ❌ | ✅ |
-| Anthropic | ❌ | ❌ | ❌ | ✅ |
+| Perplexity | `search_results` present (always searches) | ✅ | ❌ | ✅ |
+| Gemini | `groundingMetadata` present | ✅ | ❌ | ✅ |
+| Anthropic | `web_search_tool_result` / `server_tool_use` block | ✅ | ❌ | ✅ |
+| OpenAI | `web_search_call` output item | ❌ | ❌ | ✅ |
 
-The OpenAI adapter sends no `tools` parameter, so no web search is
-requested and none can be detected; the Anthropic adapter has no search
-tool either. Both fall back to regex-scraping URLs out of the prose, which
-cannot distinguish a real citation from a URL the model recited from
-memory. Recording `false` for those engines would assert something never
-measured, and every downstream rate would inherit that fabrication.
-Recording `true` would inflate `pActivated` toward 1 for exactly the
-engines that tell us least.
+Two things this table is careful about.
 
-No adapter currently exposes context ordering, so `contextPosition` is
+**OpenAI proves activation without enumerating retrieval.** A completed
+`web_search_call` says a search ran; the API never lists the pages behind
+it. `retrievedSources` is therefore `not-observable` and *not* `[]` — an
+empty array asserts the engine read nothing, which is the opposite of what
+a completed search call means. Those runs stay in `runsActivated` and are
+counted in **`runsRetrievalUnknown`**, so a depressed
+`pRetrievedGivenActivated` is attributable to the measurement gap rather
+than read as a retrieval failure. **That factor is only interpretable when
+`runsRetrievalUnknown` is 0** — decompose per-engine, or check the counter
+first.
+
+**Anthropic is the only adapter that separates retrieved from cited.**
+`web_search_tool_result` blocks list what it read; text-block `citations[]`
+name what it actually leaned on. Everywhere else the two collapse into one
+list, which makes `pCitedGivenRetrieved` degenerate for those engines.
+
+Gemini's grounding URIs are `vertexaisearch.cloud.google.com` redirect
+links, not publisher URLs. They correctly identify *a* retrieved source but
+will not hostname-match a brand domain without being resolved first, so
+`brandRetrieved` under-reports on Gemini.
+
+No adapter exposes context ordering, so `contextPosition` is
 `not-observable` across the board. The field exists because the position
 is real even when unmeasured — a schema that omitted it would make the gap
 invisible.
 
-This table is published as `observability` in the JSON, so a consumer
-reading `pActivated` can tell a real zero from a sample where nothing was
-observable in the first place.
+This table is published as `observability` in the JSON, each row naming the
+response field behind its claim, so a consumer reading `pActivated` can
+tell a real zero from a sample where nothing was observable in the first
+place.
+
+### Provenance: what makes a URL a citation
+
+`EngineResponse.citationProvenance` is the field that decides whether
+`citations` means anything:
+
+| Provenance | Meaning | Counts as a citation? |
+|---|---|---|
+| `retrieval` | From the engine's own retrieval fields. | Yes |
+| `prose-extraction` | Regex-scraped from the response text because no retrieval was requested. | **No** |
+| `none` | Retrieval was requested and the engine declined to search. | No — there is nothing to cite |
+
+Before v0.10.0 the OpenAI and Anthropic adapters sent no tool at all and
+fell back to `extractUrls()` for every call. That cannot tell a source the
+engine read from one the model reproduced from memory, so a "citation rate"
+built on it was partly measuring recall. `MeasurementEngine` now sets
+`brandCited` only on `retrieval` provenance — the same URL on the same
+domain counts or doesn't depending on whether the engine was observed
+retrieving it.
+
+`extractUrls()` still exists and still runs, but only behind
+`proseExtractedEvidence()`, which marks the run `unknown` /
+`not-observable` so it lands in `runsActivationUnknown` and cannot enter
+any activation or retrieval denominator.
+
+### Turning retrieval off
+
+`QueryOptions.webSearch` defaults to `true`. Web search is billed per call
+by every provider that offers it, so:
+
+```ts
+await new OpenAIAdapter(key).query(prompt, { webSearch: false })
+// or for a whole measurement run:
+await engine.measure({ brand, prompts, engines, queryOptions: { webSearch: false } })
+```
+
+That restores the pre-v0.10.0 request shape exactly — and reports the
+result as `unknown` / `prose-extraction`, which is what it always was.
+`QueryOptions.maxSearchUses` (default 5) caps provider-side searches per
+call where the provider supports one.
+
+Perplexity ignores `webSearch`: sonar always retrieves and offers no switch.
+
+### Observations retain every run
+
+`MeasurementReport.observations` is the per-`(query, engine, run)` array
+`decomposeVisibility()` expects, and it includes runs that errored or came
+back empty. `perPrompt` does not — a failed call never becomes a
+`RunResult`. Computing a rate over `perPrompt` measures the subset that
+happened to succeed, which is the 57.8% problem in miniature.
 
 ## CLI
 

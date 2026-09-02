@@ -64,18 +64,81 @@ describe('null representation', () => {
 })
 
 describe('engine observability', () => {
-    it('records that OpenAI and Anthropic cannot report search activation', () => {
-        expect(getEngineObservability('OpenAI')?.searchActivation).toBe(false)
-        expect(getEngineObservability('Anthropic')?.searchActivation).toBe(false)
+    it('records that every shipped adapter can now report search activation', () => {
+        for (const engine of ['OpenAI', 'Anthropic', 'Perplexity', 'Gemini']) {
+            expect(getEngineObservability(engine)?.searchActivation).toBe(true)
+        }
     })
 
-    it('records that Perplexity and Gemini can', () => {
-        expect(getEngineObservability('Perplexity')?.searchActivation).toBe(true)
-        expect(getEngineObservability('Gemini')?.searchActivation).toBe(true)
+    it('still records the one engine that cannot enumerate what it retrieved', () => {
+        // OpenAI proves a search ran via a web_search_call item but never
+        // lists the pages behind it. Claiming otherwise would put fabricated
+        // counts into the retrieval denominator.
+        expect(getEngineObservability('OpenAI')?.retrievedSources).toBe(false)
+        for (const engine of ['Anthropic', 'Perplexity', 'Gemini']) {
+            expect(getEngineObservability(engine)?.retrievedSources).toBe(true)
+        }
+    })
+
+    it('marks activation as conditional on web search for every engine that has a switch', () => {
+        // Perplexity always retrieves and has no off switch; the other three
+        // report nothing about activation unless the tool was sent.
+        expect(getEngineObservability('Perplexity')?.requiresWebSearch).toBe(false)
+        for (const engine of ['OpenAI', 'Anthropic', 'Gemini']) {
+            expect(getEngineObservability(engine)?.requiresWebSearch).toBe(true)
+        }
+    })
+
+    it('names the response field behind every claim it makes', () => {
+        // The table is what a consumer uses to decide whether a low
+        // pActivated is a finding or an artifact — an unexplained row makes
+        // that call impossible.
+        for (const row of ENGINE_OBSERVABILITY) {
+            expect(row.mechanism.length).toBeGreaterThan(20)
+        }
     })
 
     it('covers every shipped adapter', () => {
         expect(ENGINE_OBSERVABILITY.map((e) => e.engine).sort()).toEqual(['Anthropic', 'Gemini', 'OpenAI', 'Perplexity'])
+    })
+})
+
+describe('countDenominators — opaque retrieval', () => {
+    it('counts an activated run with unenumerated sources separately, not as a retrieval failure', () => {
+        // The OpenAI shape: a search demonstrably ran, but the API never says
+        // what it read. Treating that as "retrieved 0 sources" would report a
+        // retrieval failure that was really a measurement gap.
+        const d = countDenominators([run({ activation: 'activated', retrieved: null })])
+        expect(d.runsActivated).toBe(1)
+        expect(d.runsRetrieved).toBe(0)
+        expect(d.runsRetrievalUnknown).toBe(1)
+        expect(d.runsActivationUnknown).toBe(0)
+    })
+
+    it('keeps opaque runs inside runsActivated so pActivated stays honest', () => {
+        const d = countDenominators([run({ activation: 'activated', retrieved: null }), run()])
+        expect(d.runsAttempted).toBe(2)
+        expect(d.runsActivated).toBe(2)
+        // The engine searched both times — that factor is fully observed.
+        expect(decomposeVisibility([run({ activation: 'activated', retrieved: null }), run()]).pActivated).toBe(1)
+    })
+
+    it('distinguishes an opaque retrieval from an observed zero-source retrieval', () => {
+        // Same runsRetrieved, opposite meanings: one engine says "I read
+        // nothing", the other says nothing at all.
+        const opaque = countDenominators([run({ retrieved: null })])
+        const emptyButObserved = countDenominators([run({ retrieved: 0 })])
+        expect(opaque.runsRetrieved).toBe(emptyButObserved.runsRetrieved)
+        expect(opaque.runsRetrievalUnknown).toBe(1)
+        expect(emptyButObserved.runsRetrievalUnknown).toBe(0)
+    })
+
+    it('never lets an unobservable retrieval reach runsCited', () => {
+        // Nesting is the guard: without it a prose-scraped URL on an engine
+        // that exposes no retrieval would produce runsCited > runsRetrieved.
+        const d = countDenominators([run({ activation: 'activated', retrieved: null, cited: true })])
+        expect(d.runsCited).toBe(0)
+        expect(d.runsCited).toBeLessThanOrEqual(d.runsRetrieved)
     })
 })
 
