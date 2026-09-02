@@ -3,6 +3,7 @@ dist/
 coverage/
 logs/
 *.log
+*.tgz
 .DS_Store
 Thumbs.db
 .claude/

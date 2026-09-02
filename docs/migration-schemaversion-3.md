@@ -81,8 +81,9 @@ The hard gate in `aggregate.ts` (`HARD_GATE_FINDING_IDS` →
 changed. The package's `computeOverallScore()` now takes a `hardGate`
 option that produces the same behaviour, if you consolidate.
 
-> ⚠️ `PINNED_VERSION` is currently `0.8.2` while this package's
-> `package.json` says `0.8.0`. Confirm which is correct before bumping.
+> `PINNED_VERSION` was `0.8.2` against a `package.json` of `0.8.0` while
+> this was written — the two have since converged. Bump to the current
+> published version.
 
 ## Consumer 2: Python package (`ai-visibility-python`)
 
@@ -154,6 +155,9 @@ The same guard applies if that changes.
 
 ## New: `dist/visibility-vector.json`
 
+> **Now at `schemaVersion` 2 as of v0.10.0**, while `scoring-weights.json`
+> stayed at 3. That is the split working — see the v0.10.0 section below.
+
 No existing consumer reads this; it is additive. If you start:
 
 - Guard it with `assertSupportedVisibilityVectorSchemaVersion()`, **not**
@@ -168,3 +172,67 @@ No existing consumer reads this; it is additive. If you start:
 - Check the `observability` table before interpreting a low `pActivated` —
   it may be a sample dominated by engines that cannot report activation,
   which is tracked in `denominators.runsActivationUnknown`.
+
+---
+
+## v0.10.0: `visibility-vector.json` 1 → 2, and a changed definition of "citation"
+
+`scoring-weights.json` did **not** move. If you only vendor that file, there
+is nothing to do here.
+
+### The schema change
+
+| | v1 | v2 |
+|---|---|---|
+| `observability[]` rows | `engine`, 4 booleans | + `mechanism`, `requiresWebSearch` |
+| `searchActivation` observable on | Perplexity, Gemini | all four adapters |
+| `retrievedSources` observable on | Perplexity, Gemini | + Anthropic (not OpenAI) |
+| `denominators` | 5 counters | + `runsRetrievalUnknown` |
+| `decomposition` | `identity`, `factors`, `retentionRule` | + `interpretationRule` |
+
+Guard it with `assertSupportedVisibilityVectorSchemaVersion()`. The v1 error
+text names `runsRetrievalUnknown` and the old two-engine observability so a
+mismatch is legible without opening this file.
+
+### The behavioural change, which matters more than the schema
+
+Adapters now send a web-search tool by default and read activation off a
+named response field. A URL regex-scraped from prose is no longer counted as
+a citation.
+
+**If you have measurements taken before v0.10.0, they are not comparable to
+measurements taken after it.** The old OpenAI and Anthropic numbers were
+computed over URLs that may have been recited from memory rather than
+retrieved. Re-baseline rather than plotting the two on one axis.
+
+### If you call the adapters directly
+
+1. **`EngineResponse` gained three required fields** — `searchActivation`,
+   `citationProvenance`, `retrievedSources`. Anything constructing an
+   `EngineResponse` by hand (a custom adapter, a test fixture) will fail to
+   typecheck until it supplies them. Build them with the exported
+   constructors rather than by hand:
+
+   ```ts
+   import { retrievedEvidence, proseExtractedEvidence, buildEngineResponse } from 'ai-visibility/engines'
+   ```
+
+2. **Check `citationProvenance` before treating `citations` as citations.**
+   `'prose-extraction'` means the engine was never asked to retrieve;
+   `'none'` means it was asked and declined. Neither is evidence of citation.
+
+3. **Budget for the cost.** Every provider bills web search per call. Pass
+   `{ webSearch: false }` per call, in the adapter constructor defaults, or
+   via `MeasureConfig.queryOptions` to opt out — the request shape then
+   matches v0.9.0 exactly.
+
+4. **`RunResult` gained `searchActivation` and `citationProvenance`.** Same
+   typecheck consequence for hand-built fixtures.
+
+### If you read the decomposition
+
+`pRetrievedGivenActivated` is only interpretable when
+`denominators.runsRetrievalUnknown` is 0. OpenAI proves a search ran without
+listing what it read, so those runs sit in `runsActivated` but can never
+reach `runsRetrieved` — they depress the middle factor for a measurement
+reason, not a retrieval one. Decompose per-engine, or read the counter first.

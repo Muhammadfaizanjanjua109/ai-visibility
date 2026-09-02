@@ -4,6 +4,106 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.0] - 2026-09-02
+
+**Breaking: what counts as a citation changed.** Adapters now request web
+search by default, and a URL scraped out of prose no longer counts as a
+citation. Measurements taken before this release and after it are not
+comparable — the earlier ones were partly measuring recall.
+
+`dist/visibility-vector.json` bumps to `schemaVersion` 2.
+`dist/scoring-weights.json` stays at 3, untouched. That is the two-schema
+split from v0.9.0 doing its job: a measurement-layer change that would
+previously have forced a meaningless bump on the page-level file didn't.
+
+Theme: "Measure citation, not recall." The OpenAI adapter sent no `tools`
+parameter and the Anthropic adapter had no search tool, so neither engine
+was ever asked to retrieve. Both fell back to regex-scraping URLs out of the
+response text — which cannot distinguish a source the engine read from a URL
+the model reproduced from memory. Every citation rate computed over those
+two engines was measuring a mixture of the two, and `visibility-vector.json`
+had to report `searchActivation: unknown` for half the shipped adapters as a
+result.
+
+### Added
+
+- **`QueryOptions.webSearch`** (default `true`) — requests live retrieval.
+  `false` restores the pre-v0.10.0 request shape exactly, for cost control,
+  proxies, and offline replay. Web search is billed per call by every
+  provider that offers it; this is the switch. Ignored by Perplexity, which
+  always retrieves and has no off switch.
+- **`QueryOptions.maxSearchUses`** (default 5) — caps provider-side searches
+  per call where the provider supports one. A cost bound, not a correctness
+  knob.
+- **`EngineResponse.searchActivation` / `.citationProvenance` /
+  `.retrievedSources`.** Provenance travels with the response instead of
+  being inferred downstream from an undifferentiated URL list.
+- **`CitationProvenance`** — `'retrieval'` / `'prose-extraction'` /
+  `'none'`. The last two are distinct on purpose: "was never asked to
+  search" and "was asked and declined" produce the same empty citations
+  array and mean opposite things.
+- **The citation-evidence seam**, exported from `ai-visibility/engines`:
+  `retrievedEvidence()`, `activatedOpaqueEvidence()`,
+  `notActivatedEvidence()`, `proseExtractedEvidence()`. Derived once rather
+  than in four adapters, because the combinations that matter are subtle and
+  a per-adapter reimplementation is how they would drift apart. Custom
+  adapters should use these rather than authoring a fifth interpretation of
+  what a citation is.
+- **`MeasurementReport.observations`** — every attempted run as a
+  `VisibilityVectorObservation`, **including runs that errored or returned
+  nothing**. This is the input `decomposeVisibility()` expects. `perPrompt`
+  drops failed runs, so a rate computed over it silently measures the subset
+  that succeeded.
+- **`MeasureConfig.queryOptions`** — passed through to every adapter call.
+- **`runsRetrievalUnknown`** on `VisibilityDenominators`, and
+  `mechanism` + `requiresWebSearch` on every `ENGINE_OBSERVABILITY` row.
+  The build refuses to publish a row that doesn't name the response field
+  behind its claim.
+
+### Changed
+
+- **`ENGINE_OBSERVABILITY`: OpenAI and Anthropic flip `searchActivation` to
+  true.** Anthropic gains `retrievedSources` too, and is now the only
+  adapter that separates retrieved from cited (`web_search_tool_result`
+  blocks vs text-block `citations[]`) — everywhere else the two collapse and
+  `pCitedGivenRetrieved` is degenerate.
+- **OpenAI uses the Responses API** when web search is on, for the
+  `web_search_call` output item that proves activation. The
+  chat/completions path is kept verbatim for `webSearch: false`.
+- **`MeasurementEngine` sets `brandCited` only on `retrieval` provenance.**
+  The same URL on the same domain counts or doesn't depending on whether the
+  engine was observed retrieving it.
+- **`RunResult` gains `searchActivation` and `citationProvenance`**, so a
+  rate over `citedUrls` can be qualified rather than taken at face value.
+
+### Unchanged (deliberately)
+
+- **`scoring-weights.json` at `schemaVersion` 3.** Nothing page-level moved.
+- **`extractUrls()`.** Still exported, still runs — but only behind
+  `proseExtractedEvidence()`, which marks the run `unknown` /
+  `not-observable` so it lands in `runsActivationUnknown` and cannot enter
+  any activation or retrieval denominator. Deleting it would have thrown
+  away the only signal available on the opt-out path; leaving it unlabelled
+  was the bug.
+- **OpenAI's `retrievedSources` is `not-observable`, never `[]`.** A
+  completed `web_search_call` proves a search ran without enumerating what
+  it read, and `[]` there would assert it read nothing. Those runs stay in
+  `runsActivated` and are counted in `runsRetrievalUnknown` —
+  `pRetrievedGivenActivated` is only interpretable when that counter is 0.
+- **`BrandVisibility.citationRate`** still computes over successful calls
+  only. It predates this schema; prefer `decomposeVisibility(observations)`
+  wherever the denominator matters.
+
+### Tests
+
+359 → 391. New coverage for each adapter's activation signal, the
+declined-search case (tool offered, engine answered from memory, no
+citations recorded), the disabled-search case across all four adapters, the
+Anthropic retrieved-vs-cited split, a failed search counting as activated
+with zero sources, `runsRetrievalUnknown` versus an observed zero-source
+retrieval, failed runs surviving in `observations`, and the same URL
+counting as a citation under `retrieval` but not under `prose-extraction`.
+
 ## [0.9.0] - 2026-09-02
 
 **Breaking for vendored consumers.** `dist/scoring-weights.json` bumps to

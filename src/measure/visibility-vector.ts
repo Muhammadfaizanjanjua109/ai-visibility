@@ -31,18 +31,54 @@ export const notEvaluated = <T>(): Observed<T> => ({ value: null, status: 'not-e
  * consumer reading `pActivated` can tell a real zero from a sample where
  * nothing was observable in the first place.
  *
- * Only Perplexity and Gemini expose retrieval at all. The OpenAI adapter
- * sends no `tools` parameter, so no web search is requested and none can be
- * detected; the Anthropic adapter has no search tool either. Both fall back
- * to regex-scraping URLs out of the prose, which cannot distinguish a real
- * citation from a URL the model recited from memory — hence `citations:
- * true` but `retrievedSources: false` for those two.
+ * Every adapter now requests retrieval by default and reads activation off a
+ * named response field rather than inferring it. The one remaining gap is
+ * OpenAI: a `web_search_call` output item proves a search ran but does not
+ * enumerate the pages behind it, so `retrievedSources` stays false there and
+ * those runs land in `runsRetrievalUnknown`.
+ *
+ * `requiresWebSearch` is the caveat that makes the rest of the row true:
+ * with `QueryOptions.webSearch` disabled these adapters send no tool, and an
+ * engine that was never asked to search cannot report that it declined —
+ * such runs are `unknown`, never `not-activated`.
  */
 export const ENGINE_OBSERVABILITY: EngineObservability[] = [
-    { engine: 'Perplexity', searchActivation: true, retrievedSources: true, contextPosition: false, citations: true },
-    { engine: 'Gemini', searchActivation: true, retrievedSources: true, contextPosition: false, citations: true },
-    { engine: 'OpenAI', searchActivation: false, retrievedSources: false, contextPosition: false, citations: true },
-    { engine: 'Anthropic', searchActivation: false, retrievedSources: false, contextPosition: false, citations: true },
+    {
+        engine: 'Perplexity',
+        searchActivation: true,
+        retrievedSources: true,
+        contextPosition: false,
+        citations: true,
+        mechanism: 'search_results[] (legacy: citations[]) on the completion body',
+        requiresWebSearch: false,
+    },
+    {
+        engine: 'Gemini',
+        searchActivation: true,
+        retrievedSources: true,
+        contextPosition: false,
+        citations: true,
+        mechanism: 'candidates[].groundingMetadata.groundingChunks[].web.uri, requested via tools:[{google_search:{}}]. URIs are redirect links, not publisher hostnames.',
+        requiresWebSearch: true,
+    },
+    {
+        engine: 'Anthropic',
+        searchActivation: true,
+        retrievedSources: true,
+        contextPosition: false,
+        citations: true,
+        mechanism: 'web_search_tool_result blocks for retrieved sources, text-block citations[] for cited ones — the only adapter that separates the two',
+        requiresWebSearch: true,
+    },
+    {
+        engine: 'OpenAI',
+        searchActivation: true,
+        retrievedSources: false,
+        contextPosition: false,
+        citations: true,
+        mechanism: 'web_search_call output item proves activation; url_citation annotations give citations. The retrieved set is never enumerated.',
+        requiresWebSearch: true,
+    },
 ]
 
 export function getEngineObservability(engine: string): EngineObservability | undefined {
@@ -79,6 +115,7 @@ export function countDenominators(observations: VisibilityVectorObservation[]): 
     let runsRetrieved = 0
     let runsCited = 0
     let runsActivationUnknown = 0
+    let runsRetrievalUnknown = 0
 
     for (const obs of observations) {
         if (obs.searchActivation === 'unknown') runsActivationUnknown++
@@ -89,9 +126,18 @@ export function countDenominators(observations: VisibilityVectorObservation[]): 
         // Nesting is enforced structurally, not assumed: a run only counts
         // as retrieved if it activated, and only as cited if it retrieved.
         // Without this, an engine that reports citations without exposing
-        // retrieval (OpenAI/Anthropic prose-scraped URLs) would produce
-        // runsCited > runsRetrieved and a conditional probability above 1.
+        // retrieval would produce runsCited > runsRetrieved and a conditional
+        // probability above 1.
         const retrievedCount = obs.retrievedSourceCount.value
+
+        // Activated, but the engine does not say what it read (OpenAI). Kept
+        // in runsActivated — it genuinely searched — and counted here so a
+        // depressed pRetrievedGivenActivated is attributable to the
+        // measurement gap rather than read as a retrieval failure.
+        if (obs.retrievedSourceCount.status === 'not-observable') {
+            runsRetrievalUnknown++
+            continue
+        }
         if (retrievedCount === null || retrievedCount <= 0) continue
 
         runsRetrieved++
@@ -105,6 +151,7 @@ export function countDenominators(observations: VisibilityVectorObservation[]): 
         runsRetrieved,
         runsCited,
         runsActivationUnknown,
+        runsRetrievalUnknown,
     }
 }
 

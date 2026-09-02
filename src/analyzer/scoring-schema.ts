@@ -42,8 +42,22 @@ export const SUPPORTED_SCORING_SCHEMA_VERSION = 3
  * counter would force a meaningless bump on one every time the other
  * changed, which is how the page/measurement distinction got blurred in the
  * first place.
+ *
+ * v2 (this build): every adapter requests retrieval, so `observability`
+ *   gains `mechanism` and `requiresWebSearch` and three of four engines flip
+ *   `searchActivation` to true; denominators gain `runsRetrievalUnknown`.
+ * v1: activation observable on Perplexity and Gemini only.
+ *
+ * The scoring schema did not move for this release — which is the split
+ * working as designed.
  */
-export const SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION = 1
+export const SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION = 2
+
+/** What changed at each measurement-level schema version, so a mismatch names the actual difference. */
+const VECTOR_VERSION_NOTES: Record<number, string> = {
+    1: 'activation observable on Perplexity and Gemini only; OpenAI/Anthropic citations regex-scraped from prose; no runsRetrievalUnknown',
+    2: 'all four adapters request retrieval and report activation; observability rows carry mechanism + requiresWebSearch; runsRetrievalUnknown added',
+}
 
 /** What changed at each page-level schema version, quoted into the error message so the fix is legible without opening the changelog. */
 const SCORING_VERSION_NOTES: Record<number, string> = {
@@ -92,8 +106,13 @@ export function assertSupportedVisibilityVectorSchemaVersion(
     expected: number = SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION
 ): void {
     if (schemaVersion === expected) return
+    const describe = (v: number): string => {
+        const note = VECTOR_VERSION_NOTES[v]
+        return note ? `v${v} (${note})` : `v${v} (unknown to this build)`
+    }
     throw new Error(
         `visibility-vector.json schema mismatch: file is schemaVersion ${schemaVersion}, but this build understands schemaVersion ${expected}. ` +
+            `Found ${describe(schemaVersion)}; expected ${describe(expected)}. ` +
             `This is the measurement-level schema (per query/engine/run observations) and versions independently of scoring-weights.json — ` +
             `do not assume a matching scoring schemaVersion implies a matching vector schemaVersion.`
     )

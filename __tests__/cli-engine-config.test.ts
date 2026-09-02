@@ -53,7 +53,11 @@ describe('loadConfiguredEngines', () => {
         fs.writeFileSync(path.join(dir, 'crawlpod.config.js'), "module.exports = { engines: { openai: { apiKey: 'sk-file' } } }")
         process.env.CRAWLPOD_OPENAI_KEY = 'sk-env'
 
-        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), { status: 200 }))
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValue(
+                new Response(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'ok' }] }] }), { status: 200 })
+            )
         vi.stubGlobal('fetch', fetchMock)
 
         const [engine] = loadConfiguredEngines(dir)

@@ -51,17 +51,21 @@ function isRecommendedContext(sentences: string[], name: string): boolean {
  * by design — there's no reliable brand->domain mapping without asking the
  * user for one, which is out of scope for v0.7.0 (see docs/measurement.md).
  */
-function isCitedDomain(citedUrls: string[], name: string): boolean {
+export function countEntityUrls(urls: string[], name: string): number {
     const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '')
-    if (!slug) return false
-    return citedUrls.some((url) => {
+    if (!slug) return 0
+    return urls.filter((url) => {
         try {
             const hostname = new URL(url).hostname.toLowerCase().replace(/[^a-z0-9]/g, '')
             return hostname.includes(slug)
         } catch {
             return false
         }
-    })
+    }).length
+}
+
+function isCitedDomain(citedUrls: string[], name: string): boolean {
+    return countEntityUrls(citedUrls, name) > 0
 }
 
 /**

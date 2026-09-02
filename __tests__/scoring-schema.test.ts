@@ -60,15 +60,25 @@ describe('assertSupportedSchemaVersion — v2/v3 guard', () => {
     })
 
     it('versions the measurement schema independently of the scoring schema', () => {
-        // A matching scoring version must not imply a matching vector version.
-        expect(() => assertSupportedVisibilityVectorSchemaVersion(1)).not.toThrow()
+        // A matching scoring version must not imply a matching vector
+        // version. v0.10.0 is the proof: the vector schema moved 1 -> 2 while
+        // the scoring schema stayed at 3.
+        expect(() => assertSupportedVisibilityVectorSchemaVersion(2)).not.toThrow()
         expect(() => assertSupportedVisibilityVectorSchemaVersion(3)).toThrow(/visibility-vector\.json/)
-        expect(SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION).toBe(1)
+        expect(SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION).toBe(2)
+        expect(SUPPORTED_SCORING_SCHEMA_VERSION).toBe(3)
+        // Equal numbers, different schemas — the guards must not be interchangeable.
+        expect(() => assertSupportedSchemaVersion(SUPPORTED_VISIBILITY_VECTOR_SCHEMA_VERSION)).toThrow()
+    })
+
+    it('rejects a v1 vector file and names what changed', () => {
+        expect(() => assertSupportedVisibilityVectorSchemaVersion(1)).toThrow(/runsRetrievalUnknown/)
+        expect(() => assertSupportedVisibilityVectorSchemaVersion(1)).toThrow(/Perplexity and Gemini only/)
     })
 
     it('does not confuse the two schemas in its error text', () => {
         expect(() => assertSupportedSchemaVersion(2)).toThrow(/scoring-weights\.json/)
-        expect(() => assertSupportedVisibilityVectorSchemaVersion(2)).toThrow(/versions independently/)
+        expect(() => assertSupportedVisibilityVectorSchemaVersion(1)).toThrow(/versions independently/)
     })
 })
 
